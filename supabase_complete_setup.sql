@@ -916,13 +916,18 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
+  -- `agency_settings` ne contient qu'une ligne (colonne `singleton` = true,
+  -- index unique). Le WHERE est OBLIGATOIRE : certains projets Supabase
+  -- rejettent tout UPDATE sans clause WHERE (« 21000 UPDATE requires a WHERE
+  -- clause »), ce qui faisait échouer l'enregistrement des infos de l'agence.
   update public.agency_settings
      set agency_name = new.name,
          slogan      = new.description,
          address     = new.address,
          phone       = new.phone,
          logo        = new.logo,
-         updated_at  = now();
+         updated_at  = now()
+   where singleton;
 
   if not found then
     insert into public.agency_settings (
