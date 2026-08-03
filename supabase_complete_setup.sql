@@ -1,29 +1,39 @@
 -- ============================================================================
---  AUTO LOCATION SALAM — FULL SUPABASE SETUP
+--  AUTO LOCATION SALAM — COMPLETE SUPABASE SETUP (single, authoritative file)
 -- ============================================================================
---  NOTE: This is the older base setup. The single authoritative, all-in-one
---  script is now `supabase_complete_setup.sql` (base + every migration merged).
---  Prefer running that one. Kept here for reference/history only.
---
---  Run in the Supabase SQL Editor of the project:
+--  Run this WHOLE file ONCE in the SQL Editor of the Supabase project:
 --      https://gnddziizaazbipyxpygt.supabase.co
 --
---  It creates EVERYTHING the application needs:
---    • All tables used by every interface (cars, clients, agencies, workers,
---      reservations, payments, inspections, expenses, offers, website, …)
---    • The `admin_count` view read by the login page
---    • Triggers that keep Supabase Authentication aligned with the app:
---        - Admin accounts created from the LOGIN page (auth.users -> profiles)
---        - Worker accounts created from the TEAM (Équipe) interface
---          (workers -> auth.users, each aligned by email + password)
---    • All RPC functions the app calls (worker login, reservations, promo
---      codes, availability, sessions, …)
---    • The storage buckets used for every image upload, each returning a
---      public URL that is stored on the row and displayed back from that URL.
+--  This is the ONE file that builds the entire backend for the application.
+--  It merges the historical base setup + every migration into a single script:
+--    • Every table read/written by every interface and every button action
+--      (cars, clients, agencies, workers + payroll, reservations, payments,
+--       inspections, expenses, maintenance, services, assurances, promo codes,
+--       offers, website settings, document templates, conciergerie owners, …).
+--    • The `admin_count` view read by the LOGIN page so the
+--      "Create admin account" button hides once an admin exists.
+--    • Auth alignment so LOGIN works directly for everyone:
+--        - ADMIN accounts created from the LOGIN page  (auth.users -> profiles)
+--        - WORKER accounts created from the TEAM (Équipe) interface
+--          (workers -> auth.users + auth.identities, aligned by email+password)
+--        - New auth users are auto-confirmed so they can sign in immediately.
+--    • Every RPC the app calls via supabase.rpc(...).
+--    • All storage buckets used by every image/PDF upload (public URL saved on
+--      the row and displayed back from that URL).
 --    • Row Level Security enabled with working policies.
 --
---  Safe to re-run: it uses IF NOT EXISTS / CREATE OR REPLACE / idempotent
---  policy drops wherever possible.
+--  Idempotent: uses IF NOT EXISTS / CREATE OR REPLACE / idempotent policy drops
+--  and ADD COLUMN IF NOT EXISTS, so it is safe to re-run.
+--
+--  After running, in the Supabase dashboard:
+--    1. Authentication > Providers > Email: keep "Enable Email provider" ON.
+--       (Email confirmation is handled automatically by a trigger below, so the
+--        first admin can sign in right after creating the account.)
+--    2. Open the app's LOGIN page and click "Créer un compte administrateur".
+--       The admin appears under Authentication > Users and the button then
+--       disappears automatically.
+--    3. Add workers from the Team (Équipe) interface — each is mirrored to
+--       Authentication > Users, aligned by email + password, and can log in.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
@@ -38,15 +48,16 @@ create extension if not exists "uuid-ossp";
 -- ============================================================================
 
 -- 1.1 PROFILES ----------------------------------------------------------------
--- One row per admin/user account. Linked 1:1 to auth.users(id).
--- Populated automatically when an admin account is created on the LOGIN page.
+-- One row per admin account. Linked 1:1 to auth.users(id). Populated
+-- automatically when an admin account is created on the LOGIN page.
 create table if not exists public.profiles (
-  id          uuid primary key references auth.users(id) on delete cascade,
-  full_name   text,
-  username    text,
-  email       text,
-  role        text not null default 'admin',
-  created_at  timestamptz not null default now()
+  id            uuid primary key references auth.users(id) on delete cascade,
+  full_name     text,
+  username      text,
+  email         text,
+  role          text not null default 'admin',
+  profile_photo text,                             -- public URL ("website"/"worker" buckets)
+  created_at    timestamptz not null default now()
 );
 
 -- 1.2 AGENCIES ----------------------------------------------------------------
@@ -75,11 +86,17 @@ create table if not exists public.cars (
   price_week          numeric,
   price_month         numeric,
   deposit             numeric,
+  price_day_eur       numeric,                    -- euro tariffs (NULL = auto-convert from DZD)
+  price_week_eur      numeric,
+  price_month_eur     numeric,
+  deposit_eur         numeric,
   image_url           text,                       -- public URL from the "cars" bucket
   mileage             int default 0,
   fuel_level          text,
   status              text default 'disponible',  -- only 'maintenance' is set manually
   is_hidden_from_site boolean not null default false,
+  ownership_type      text not null default 'personal',  -- 'personal' | 'consignment'
+  description         text,                        -- public text shown on the website
   created_at          timestamptz not null default now()
 );
 
@@ -116,8 +133,8 @@ create table if not exists public.clients (
 
 -- 2.1 WORKERS -----------------------------------------------------------------
 -- Created from the Team (Équipe) interface. Each worker also gets a matching
--- Supabase Authentication account (see trigger in section 5) aligned by
--- email + password.
+-- Supabase Authentication account (trigger in section 8) aligned by
+-- email + password so they can log in directly from the LOGIN page.
 create table if not exists public.workers (
   id            uuid primary key default gen_random_uuid(),
   full_name     text not null,
@@ -130,7 +147,7 @@ create table if not exists public.workers (
   payment_type  text,                             -- 'daily' | 'monthly'
   base_salary   numeric default 0,
   username      text,
-  password      text,                             -- used by login_worker() RPC
+  password      text,                             -- used by login_worker() / update_worker_account()
   created_at    timestamptz not null default now()
 );
 
@@ -185,21 +202,21 @@ create table if not exists public.store_expenses (
 
 -- 3.2 VEHICLE EXPENSES --------------------------------------------------------
 create table if not exists public.vehicle_expenses (
-  id              uuid primary key default gen_random_uuid(),
-  car_id          uuid references public.cars(id) on delete cascade,
-  type            text,                       -- vidange | assurance | controle | chaine | autre
-  cost            numeric not null default 0,
-  date            date not null default current_date,
-  note            text,
-  current_mileage int,
-  next_vidange_km int,
-  expiration_date date,
-  expense_name    text,
+  id                  uuid primary key default gen_random_uuid(),
+  car_id              uuid references public.cars(id) on delete cascade,
+  type                text,                       -- vidange | assurance | controle | chaine | autre
+  cost                numeric not null default 0,
+  date                date not null default current_date,
+  note                text,
+  current_mileage     int,
+  next_vidange_km     int,
+  expiration_date     date,
+  expense_name        text,
   oil_filter_changed  boolean not null default false,   -- vidange : filtre à huile changé
   air_filter_changed  boolean not null default false,   -- vidange : filtre à air changé
   fuel_filter_changed boolean not null default false,   -- vidange : filtre à carburant changé
   ac_filter_changed   boolean not null default false,   -- vidange : filtre de climatisation changé
-  created_at      timestamptz not null default now()
+  created_at          timestamptz not null default now()
 );
 
 -- 3.3 MAINTENANCE ALERTS ------------------------------------------------------
@@ -285,6 +302,12 @@ create table if not exists public.reservations (
   advance_payment             numeric default 0,
   remaining_payment           numeric default 0,
 
+  -- Devise de règlement (le dinar reste la référence comptable)
+  payment_currency            text not null default 'DZD',   -- 'DZD' | 'EUR'
+  total_price_eur             numeric,
+  advance_payment_eur         numeric,
+  remaining_payment_eur       numeric,
+
   caution_amount_dzd          numeric,
   caution_currency            text default 'DZD',
   euro_rate                   numeric default 145,
@@ -294,6 +317,14 @@ create table if not exists public.reservations (
   protection_assurance_id     uuid,
   protection_assurance_name   text,
   protection_assurance_price  numeric default 0,
+
+  -- Livraison (conciergerie) : payeur fixé par trigger selon la durée
+  delivery_fee                numeric not null default 0,
+  delivery_fee_payer          text,                          -- 'client' | 'owner' | null
+  -- Commission conciergerie figée (snapshot) au passage en 'completed'
+  commission_type             text,
+  commission_value            numeric,
+  commission_amount           numeric,
 
   tva_applied                 boolean default false,
   excess_mileage              numeric,
@@ -324,6 +355,8 @@ create index if not exists idx_reservations_client on public.reservations(client
 create index if not exists idx_reservations_status on public.reservations(status);
 
 -- 4.2 RESERVATION SERVICES (snapshot of selected extra services) --------------
+-- driver_id / driver_caution : un chauffeur (worker de type 'driver') peut être
+-- attaché à un service avec une caution encaissée.
 create table if not exists public.reservation_services (
   id             uuid primary key default gen_random_uuid(),
   reservation_id uuid not null references public.reservations(id) on delete cascade,
@@ -331,8 +364,11 @@ create table if not exists public.reservation_services (
   service_name   text,
   description    text,
   price          numeric not null default 0,
+  driver_id      uuid references public.workers(id) on delete set null,
+  driver_caution numeric not null default 0,
   created_at     timestamptz not null default now()
 );
+create index if not exists idx_reservation_services_driver on public.reservation_services(driver_id);
 
 -- 4.3 PAYMENTS ----------------------------------------------------------------
 create table if not exists public.payments (
@@ -441,20 +477,25 @@ create table if not exists public.website_contacts (
 );
 
 -- 5.5 WEBSITE SETTINGS --------------------------------------------------------
+-- Source unique du nom + logo de l'agence (barre latérale, contrats, factures…).
+-- navbar_logo : logo dédié à la barre de navigation du site public.
+-- singleton : verrou "au plus une ligne" (index unique plus bas).
 create table if not exists public.website_settings (
   id                 uuid primary key default gen_random_uuid(),
   name               text,
   description        text,
   logo               text,                -- public URL ("website" bucket)
+  navbar_logo        text default '',     -- public URL ("website" bucket) — repli sur logo si vide
   phone_number_2     text,
   bank_number        text,
   address            text,
   phone              text,
   landing_background text,                -- public URL ("website" bucket)
+  singleton          boolean not null default true,
   updated_at         timestamptz not null default now()
 );
 
--- 5.6 AGENCY SETTINGS (branding + document templates snapshot) ----------------
+-- 5.6 AGENCY SETTINGS (miroir lecture du branding + modèles de documents) -----
 create table if not exists public.agency_settings (
   id                 uuid primary key default gen_random_uuid(),
   agency_name        text,
@@ -463,6 +504,7 @@ create table if not exists public.agency_settings (
   phone              text,
   logo               text,
   document_templates jsonb default '{}'::jsonb,
+  singleton          boolean not null default true,
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now()
 );
@@ -480,7 +522,28 @@ create table if not exists public.document_templates (
 );
 
 -- ============================================================================
--- 6. ADMIN SESSIONS (audit trail for the database-backed session service)
+-- 6. CONCIERGERIE — PROPRIÉTAIRES DE VÉHICULES CONFIÉS (données privées)
+--    Jamais exposée au rôle anon. Une ligne au maximum par véhicule.
+-- ============================================================================
+create table if not exists public.car_owners (
+  id               uuid primary key default gen_random_uuid(),
+  car_id           uuid not null unique references public.cars(id) on delete cascade,
+  owner_name       text not null,
+  owner_phone      text,
+  internal_ref     text unique,                    -- CS-001, CS-002… (trigger)
+  consignment_date date default current_date,
+  commission_type  text not null default 'percentage'
+                     check (commission_type in ('amount', 'percentage')),
+  commission_value numeric not null default 0 check (commission_value >= 0),
+  contract_url     text,                           -- public/private URL ("contracts" bucket)
+  private_notes    text,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+create index if not exists idx_car_owners_car on public.car_owners(car_id);
+
+-- ============================================================================
+-- 7. ADMIN SESSIONS (audit trail for the database-backed session service)
 -- ============================================================================
 create table if not exists public.admin_sessions (
   id            uuid primary key default gen_random_uuid(),
@@ -498,24 +561,151 @@ create index if not exists idx_admin_sessions_token on public.admin_sessions(acc
 
 
 -- ============================================================================
--- 7. VIEWS
+-- 7b. COLUMN TOP-UPS (idempotent) — converge an already-existing schema to the
+--     final column set. No-ops on a fresh database created by the section above.
+-- ============================================================================
+alter table public.profiles           add column if not exists profile_photo text;
+alter table public.cars
+  add column if not exists ownership_type text not null default 'personal',
+  add column if not exists description    text,
+  add column if not exists price_day_eur  numeric,
+  add column if not exists price_week_eur numeric,
+  add column if not exists price_month_eur numeric,
+  add column if not exists deposit_eur    numeric;
+alter table public.vehicle_expenses
+  add column if not exists oil_filter_changed  boolean not null default false,
+  add column if not exists air_filter_changed  boolean not null default false,
+  add column if not exists fuel_filter_changed boolean not null default false,
+  add column if not exists ac_filter_changed   boolean not null default false;
+alter table public.reservations
+  add column if not exists payment_currency      text not null default 'DZD',
+  add column if not exists total_price_eur       numeric,
+  add column if not exists advance_payment_eur   numeric,
+  add column if not exists remaining_payment_eur numeric,
+  add column if not exists caution_amount_dzd    numeric,
+  add column if not exists euro_rate             numeric default 145,
+  add column if not exists delivery_fee          numeric not null default 0,
+  add column if not exists delivery_fee_payer    text,
+  add column if not exists commission_type       text,
+  add column if not exists commission_value      numeric,
+  add column if not exists commission_amount     numeric;
+alter table public.reservation_services
+  add column if not exists driver_id      uuid references public.workers(id) on delete set null,
+  add column if not exists driver_caution numeric not null default 0;
+alter table public.website_settings
+  add column if not exists navbar_logo text default '',
+  add column if not exists singleton   boolean not null default true;
+alter table public.agency_settings
+  add column if not exists singleton boolean not null default true;
+
+-- CHECK constraints (added only if absent, so re-runs never fail)
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'cars_ownership_type_check') then
+    alter table public.cars add constraint cars_ownership_type_check
+      check (ownership_type in ('personal', 'consignment'));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'cars_eur_prices_non_negative') then
+    alter table public.cars add constraint cars_eur_prices_non_negative check (
+      coalesce(price_day_eur,0) >= 0 and coalesce(price_week_eur,0) >= 0 and
+      coalesce(price_month_eur,0) >= 0 and coalesce(deposit_eur,0) >= 0);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'reservations_payment_currency_check') then
+    alter table public.reservations add constraint reservations_payment_currency_check
+      check (payment_currency in ('DZD', 'EUR'));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'reservations_delivery_fee_payer_check') then
+    alter table public.reservations add constraint reservations_delivery_fee_payer_check
+      check (delivery_fee_payer is null or delivery_fee_payer in ('client', 'owner'));
+  end if;
+end $$;
+
+create index if not exists idx_cars_ownership_type on public.cars(ownership_type);
+
+
+-- ============================================================================
+-- 8. VIEWS
 -- ============================================================================
 
--- 7.1 admin_count — read by the LOGIN page to know whether an admin already
---     exists (so the "Create admin account" button can be hidden).
+-- 8.1 admin_count — read by the LOGIN page to know whether an admin already
+--     exists (so the "Create admin account" button hides after first admin).
 create or replace view public.admin_count as
   select count(*)::int as count
   from public.profiles
   where role = 'admin';
 
+-- 8.2 consignment_earnings — gains conciergerie (admin only).
+--     security_invoker : la vue s'exécute avec les droits de l'appelant, donc
+--     anon ne peut rien en lire (aucune policy anon sur car_owners).
+drop view if exists public.consignment_earnings;
+create view public.consignment_earnings
+with (security_invoker = true)
+as
+select
+  c.id                                as car_id,
+  c.brand,
+  c.model,
+  c.plate_number,
+  o.internal_ref,
+  o.owner_name,
+  o.owner_phone,
+  o.commission_type,
+  o.commission_value,
+  count(r.id) filter (where r.status = 'completed')            as completed_rentals,
+  coalesce(sum(r.total_price)      filter (where r.status = 'completed'), 0) as gross_revenue,
+  coalesce(sum(r.commission_amount) filter (where r.status = 'completed'), 0) as agency_commission,
+  coalesce(sum(r.delivery_fee)
+           filter (where r.status = 'completed' and r.delivery_fee_payer = 'owner'), 0)
+                                                                as owner_delivery_fees,
+  coalesce(sum(r.total_price)       filter (where r.status = 'completed'), 0)
+    - coalesce(sum(r.commission_amount) filter (where r.status = 'completed'), 0)
+    - coalesce(sum(r.delivery_fee)
+               filter (where r.status = 'completed' and r.delivery_fee_payer = 'owner'), 0)
+                                                                as owner_payout
+from public.cars c
+join public.car_owners o on o.car_id = c.id
+left join public.reservations r on r.car_id = c.id
+where c.ownership_type = 'consignment'
+group by c.id, c.brand, c.model, c.plate_number,
+         o.internal_ref, o.owner_name, o.owner_phone,
+         o.commission_type, o.commission_value;
+
+-- 8.3 inspections — compatibility view over vehicle_inspections. The planner
+--     cleans up a return inspection via .from('inspections').delete(); this
+--     view keeps that call working (auto-updatable, runs as caller/RLS).
+drop view if exists public.inspections;
+create view public.inspections
+with (security_invoker = true)
+as select * from public.vehicle_inspections;
+
 
 -- ============================================================================
--- 8. AUTH ALIGNMENT TRIGGERS
---    Keep the Supabase Authentication interface in sync with the app so that
---    every admin AND every worker has a login account aligned by email/password.
+-- 9. AUTH ALIGNMENT — LOGIN WORKS DIRECTLY FOR ADMINS AND WORKERS
 -- ============================================================================
 
--- 8.1 auth.users -> profiles
+-- 9.1 Auto-confirm new auth users (BEFORE INSERT on auth.users)
+-- So the first admin created from the LOGIN page — and every worker mirrored to
+-- auth.users — can sign in immediately, regardless of the "Confirm email"
+-- dashboard setting.
+create or replace function public.auto_confirm_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public, auth
+as $$
+begin
+  if new.email_confirmed_at is null then
+    new.email_confirmed_at := now();
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_confirm on auth.users;
+create trigger on_auth_user_confirm
+  before insert on auth.users
+  for each row execute function public.auto_confirm_new_user();
+
+-- 9.2 auth.users -> profiles (AFTER INSERT)
 -- When an admin account is created from the LOGIN page (supabase.auth.signUp),
 -- ensure a matching profiles row exists (the app also inserts it explicitly;
 -- this trigger is a safety net so the two stay aligned).
@@ -546,13 +736,13 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
--- 8.2 workers -> auth.users
+-- 9.3 workers -> auth.users (AFTER INSERT)
 -- When a worker is created from the TEAM (Équipe) interface, create a matching
 -- Supabase Authentication account so their login information (email + password)
--- appears in the Authentication interface, aligned to that worker.
--- The worker's password (stored on the workers row) is hashed with bcrypt.
--- If auth creation fails on your GoTrue version, the worker is still created and
--- can log in via the login_worker() RPC (below) — the insert is never aborted.
+-- appears in the Authentication interface, aligned to that worker, and they can
+-- log in directly. If auth creation fails on your GoTrue version, the worker is
+-- still created and can log in via the login_worker() RPC — the insert is never
+-- aborted.
 create or replace function public.handle_new_worker()
 returns trigger
 language plpgsql
@@ -616,11 +806,152 @@ create trigger on_worker_created
 
 
 -- ============================================================================
--- 9. APPLICATION RPC FUNCTIONS (called by the app via supabase.rpc(...))
+-- 10. CONCIERGERIE / LIVRAISON / BRANDING — TRIGGERS
 -- ============================================================================
 
--- 9.1 login_worker(email_or_username, password)
--- Worker sign-in from the LOGIN page (fallback after Supabase Auth). Returns a
+-- 10.1 Référence interne CS-001, CS-002… générée automatiquement
+create or replace function public.set_car_owner_internal_ref()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_next int;
+begin
+  if new.internal_ref is null or btrim(new.internal_ref) = '' then
+    select coalesce(max((regexp_replace(internal_ref, '\D', '', 'g'))::int), 0) + 1
+      into v_next
+      from public.car_owners
+     where internal_ref ~ '^CS-\d+$';
+    new.internal_ref := 'CS-' || lpad(v_next::text, 3, '0');
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_car_owners_internal_ref on public.car_owners;
+create trigger trg_car_owners_internal_ref
+  before insert on public.car_owners
+  for each row execute function public.set_car_owner_internal_ref();
+
+-- 10.2 car_owners.updated_at auto
+create or replace function public.touch_car_owner_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_car_owners_touch on public.car_owners;
+create trigger trg_car_owners_touch
+  before update on public.car_owners
+  for each row execute function public.touch_car_owner_updated_at();
+
+-- 10.3 Payeur des frais de livraison : >= 10 jours -> propriétaire, sinon client
+create or replace function public.set_delivery_fee_payer()
+returns trigger language plpgsql as $$
+begin
+  if coalesce(new.delivery_fee, 0) > 0 then
+    if coalesce(new.total_days, 0) >= 10 then
+      new.delivery_fee_payer := 'owner';
+    else
+      new.delivery_fee_payer := 'client';
+    end if;
+  else
+    new.delivery_fee_payer := null;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_reservations_delivery_fee_payer on public.reservations;
+create trigger trg_reservations_delivery_fee_payer
+  before insert or update of delivery_fee, total_days on public.reservations
+  for each row execute function public.set_delivery_fee_payer();
+
+-- 10.4 Snapshot de la commission conciergerie au passage en 'completed'
+create or replace function public.snapshot_reservation_commission()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_owner public.car_owners%rowtype;
+begin
+  if new.status = 'completed'
+     and (tg_op = 'INSERT' or old.status is distinct from 'completed')
+     and new.commission_amount is null
+  then
+    select o.* into v_owner
+      from public.car_owners o
+      join public.cars c on c.id = o.car_id
+     where o.car_id = new.car_id
+       and c.ownership_type = 'consignment'
+     limit 1;
+
+    if found then
+      new.commission_type  := v_owner.commission_type;
+      new.commission_value := v_owner.commission_value;
+      new.commission_amount := case
+        when v_owner.commission_type = 'percentage'
+          then round(coalesce(new.total_price, 0) * v_owner.commission_value / 100.0, 2)
+        else round(v_owner.commission_value, 2)
+      end;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_reservations_commission_snapshot on public.reservations;
+create trigger trg_reservations_commission_snapshot
+  before insert or update of status on public.reservations
+  for each row execute function public.snapshot_reservation_commission();
+
+-- 10.5 agency_settings = miroir lecture du branding de website_settings
+create or replace function public.sync_agency_settings_branding()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  update public.agency_settings
+     set agency_name = new.name,
+         slogan      = new.description,
+         address     = new.address,
+         phone       = new.phone,
+         logo        = new.logo,
+         updated_at  = now();
+
+  if not found then
+    insert into public.agency_settings (
+      id, agency_name, slogan, address, phone, logo, updated_at
+    ) values (
+      '00000000-0000-0000-0000-000000000001',
+      new.name, new.description, new.address, new.phone, new.logo, now()
+    );
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_website_settings_sync_agency on public.website_settings;
+create trigger trg_website_settings_sync_agency
+  after insert or update on public.website_settings
+  for each row execute function public.sync_agency_settings_branding();
+
+-- 10.6 Verrou singleton "au plus une ligne" pour website_settings / agency_settings
+create unique index if not exists website_settings_one_row on public.website_settings (singleton);
+create unique index if not exists agency_settings_one_row  on public.agency_settings  (singleton);
+
+
+-- ============================================================================
+-- 11. APPLICATION RPC FUNCTIONS (called by the app via supabase.rpc(...))
+-- ============================================================================
+
+-- 11.1 login_worker(email_or_username, password)
+-- Worker sign-in fallback from the LOGIN page (after Supabase Auth). Returns a
 -- JSON object { success, worker } or { success:false, error }.
 create or replace function public.login_worker(
   p_email_or_username text,
@@ -658,8 +989,90 @@ begin
 end;
 $$;
 
--- 9.2 get_reserved_periods(car_id)
--- Reserved date ranges for a car, used by the public calendar to block dates.
+-- 11.2 get_worker_account(email, current_password) — lecture de sa fiche par l'employé
+create or replace function public.get_worker_account(
+  p_email            text,
+  p_current_password text
+)
+returns jsonb
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_worker public.workers%rowtype;
+begin
+  select * into v_worker
+    from public.workers
+   where lower(email) = lower(btrim(p_email))
+   limit 1;
+
+  if not found or v_worker.password is distinct from p_current_password then
+    return jsonb_build_object('success', false);
+  end if;
+
+  return jsonb_build_object(
+    'success', true,
+    'id', v_worker.id,
+    'full_name', v_worker.full_name,
+    'username', v_worker.username,
+    'email', v_worker.email,
+    'profile_photo', v_worker.profile_photo
+  );
+end;
+$$;
+
+-- 11.3 update_worker_account(...) — l'employé met à jour son propre compte
+-- Preuve d'identité : e-mail + mot de passe actuel (même contrat que login_worker).
+-- Chaque paramètre NULL/vide conserve la valeur existante.
+create or replace function public.update_worker_account(
+  p_email            text,
+  p_current_password text,
+  p_full_name        text default null,
+  p_username         text default null,
+  p_new_email        text default null,
+  p_new_password     text default null,
+  p_profile_photo    text default null
+)
+returns jsonb
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_worker public.workers%rowtype;
+  v_email  text := lower(btrim(coalesce(p_new_email, '')));
+begin
+  select * into v_worker
+    from public.workers
+   where lower(email) = lower(btrim(p_email))
+   limit 1;
+
+  if not found then
+    raise exception 'WORKER_NOT_FOUND';
+  end if;
+
+  if p_current_password is null
+     or v_worker.password is distinct from p_current_password then
+    raise exception 'WRONG_PASSWORD';
+  end if;
+
+  if v_email <> '' and v_email <> lower(v_worker.email)
+     and exists (select 1 from public.workers where lower(email) = v_email) then
+    raise exception 'EMAIL_TAKEN';
+  end if;
+
+  update public.workers set
+    full_name     = coalesce(nullif(btrim(p_full_name), ''),     full_name),
+    username      = coalesce(nullif(btrim(p_username), ''),      username),
+    email         = coalesce(nullif(v_email, ''),                email),
+    password      = coalesce(nullif(p_new_password, ''),         password),
+    profile_photo = coalesce(nullif(btrim(p_profile_photo), ''), profile_photo)
+  where id = v_worker.id;
+
+  return jsonb_build_object('success', true, 'id', v_worker.id);
+end;
+$$;
+
+-- 11.4 get_reserved_periods(car_id) — plages réservées d'une voiture (calendrier public)
 create or replace function public.get_reserved_periods(p_car_id uuid)
 returns table (departure_date date, return_date date)
 language sql
@@ -671,8 +1084,7 @@ as $$
     and status in ('website_reservation', 'pending', 'accepted', 'confirmed', 'active');
 $$;
 
--- 9.3 get_unavailable_car_ids(from, to)
--- IDs of cars unavailable for an overlapping period.
+-- 11.5 get_unavailable_car_ids(from, to) — voitures indisponibles sur une période
 create or replace function public.get_unavailable_car_ids(p_from date, p_to date)
 returns table (id uuid)
 language sql
@@ -686,8 +1098,7 @@ as $$
     and return_date   >= p_from;
 $$;
 
--- 9.4 verify_promo_code(code)
--- Validate a promo code server-side (anon-safe). Returns { valid, discount_percentage, reason }.
+-- 11.6 verify_promo_code(code) — validation serveur d'un code promo (anon-safe)
 create or replace function public.verify_promo_code(p_code text)
 returns jsonb
 language plpgsql
@@ -715,10 +1126,10 @@ begin
 end;
 $$;
 
--- 9.5 create_website_reservation(client, reservation, services, promo_code)
--- Single-transaction write path for the PUBLIC website (anon role has no direct
--- INSERT rights on clients/reservations). Creates client + reservation +
--- services, consumes the promo code, and guards against double-booking.
+-- 11.7 create_website_reservation(client, reservation, services, promo_code)
+-- Chemin d'écriture unique pour le SITE PUBLIC (le rôle anon n'a pas d'INSERT
+-- direct sur clients/reservations). Crée client + réservation + services,
+-- consomme le code promo, garde contre le double-booking et mémorise la devise.
 create or replace function public.create_website_reservation(
   p_client      jsonb,
   p_reservation jsonb,
@@ -737,9 +1148,14 @@ declare
   v_to        date  := (p_reservation->>'return_date')::date;
   v_svc       jsonb;
   v_pc        public.promo_codes%rowtype;
+  v_currency  text := case
+                        when upper(coalesce(p_reservation->>'payment_currency','DZD')) = 'EUR'
+                        then 'EUR' else 'DZD'
+                      end;
+  v_eur_rate  numeric := nullif(p_reservation->>'euro_rate','')::numeric;
 begin
-  -- Availability guard (overlapping active-ish reservations, y compris les
-  -- commandes du site encore en attente d'acceptation 'website_reservation')
+  -- Availability guard (overlapping active-ish reservations, incl. website orders
+  -- still waiting for agency acceptance 'website_reservation')
   if exists (
     select 1 from public.reservations
     where car_id = v_car_id
@@ -772,12 +1188,13 @@ begin
   )
   returning id into v_client_id;
 
-  -- Reservation (always from the public website)
+  -- Reservation (always from the public website -> status 'website_reservation')
   insert into public.reservations (
     client_id, car_id, departure_date, departure_time, departure_agency_id,
     return_date, return_time, return_agency_id, total_days, total_price,
     additional_fees, protection_assurance_id, protection_assurance_name,
-    protection_assurance_price, status, source
+    protection_assurance_price, status, source,
+    payment_currency, total_price_eur, euro_rate
   ) values (
     v_client_id, v_car_id,
     v_from, p_reservation->>'departure_time', (p_reservation->>'departure_agency_id')::uuid,
@@ -788,9 +1205,12 @@ begin
     nullif(p_reservation->>'protection_assurance_id','')::uuid,
     p_reservation->>'protection_assurance_name',
     coalesce((p_reservation->>'protection_assurance_price')::numeric, 0),
-    -- Statut dédié : la commande attend l'acceptation de l'agence dans
-    -- « Website commandes » avant de rejoindre le planificateur ('pending').
-    'website_reservation', 'website'
+    'website_reservation', 'website',
+    v_currency,
+    case when v_currency = 'EUR'
+         then nullif(p_reservation->>'total_price_eur','')::numeric
+         else null end,
+    coalesce(v_eur_rate, 145)
   )
   returning id into v_res_id;
 
@@ -817,7 +1237,7 @@ begin
 end;
 $$;
 
--- 9.6 Database-backed session helpers (audit trail; localStorage is primary)
+-- 11.8 Database-backed session helpers (audit trail; localStorage is primary)
 create or replace function public.create_admin_session(
   p_access_token  text,
   p_refresh_token text,
@@ -864,25 +1284,24 @@ $$;
 
 
 -- ============================================================================
--- 10. STORAGE BUCKETS (one per image-upload feature in the app)
---     Every uploaded image is stored in its bucket; its public URL is saved on
---     the matching table row and the app displays the image from that URL.
+-- 12. STORAGE BUCKETS (one per upload feature in the app)
+--     Every uploaded file is stored in its bucket; its public URL is saved on
+--     the matching table row and the app displays it back from that URL.
 -- ============================================================================
 insert into storage.buckets (id, name, public)
 values
-  ('cars',       'cars',       true),   -- car photos            -> cars.image_url
-  ('clients',    'clients',    true),   -- client photos & docs  -> clients.profile_photo / scanned_documents
-  ('worker',     'worker',     true),   -- worker profile photos -> workers.profile_photo (uploadWorkerImage)
-  ('workers',    'workers',    true),   -- worker profile photos -> workers.profile_photo (ConfigPage)
-  ('inspection', 'inspection', true),   -- inspection photos     -> vehicle_inspections.*_photo
-  ('website',    'website',    true)    -- logo & landing bg     -> website_settings.logo / landing_background
+  ('cars',       'cars',       true),    -- car photos            -> cars.image_url
+  ('clients',    'clients',    true),    -- client photos & docs  -> clients.profile_photo / scanned_documents
+  ('worker',     'worker',     true),    -- worker profile photos -> workers.profile_photo (uploadWorkerImage)
+  ('workers',    'workers',    true),    -- worker profile photos -> workers.profile_photo (ConfigPage)
+  ('inspection', 'inspection', true),    -- inspection photos     -> vehicle_inspections.*_photo
+  ('website',    'website',    true),    -- logo & landing bg     -> website_settings.logo / navbar_logo / landing_background
+  ('contracts',  'contracts',  false)    -- conciergerie contracts (privé) -> car_owners.contract_url
 on conflict (id) do update set public = excluded.public;
 
--- Storage policies: public read for everyone; write/update/delete for anyone
--- with a valid key (anon + authenticated) so uploads work from every interface.
+-- Public buckets: read for everyone; write/update/delete for anon + authenticated.
 do $$
-declare
-  b text;
+declare b text;
 begin
   foreach b in array array['cars','clients','worker','workers','inspection','website']
   loop
@@ -898,17 +1317,27 @@ begin
   end loop;
 end $$;
 
+-- Private "contracts" bucket: authenticated only (never exposed to anon).
+drop policy if exists "contracts_read"   on storage.objects;
+drop policy if exists "contracts_write"  on storage.objects;
+drop policy if exists "contracts_update" on storage.objects;
+drop policy if exists "contracts_delete" on storage.objects;
+create policy "contracts_read"   on storage.objects for select to authenticated using (bucket_id = 'contracts');
+create policy "contracts_write"  on storage.objects for insert to authenticated with check (bucket_id = 'contracts');
+create policy "contracts_update" on storage.objects for update to authenticated using (bucket_id = 'contracts') with check (bucket_id = 'contracts');
+create policy "contracts_delete" on storage.objects for delete to authenticated using (bucket_id = 'contracts');
+
 
 -- ============================================================================
--- 11. ROW LEVEL SECURITY
---     Enable RLS on every table and add working policies:
---       • public/anon can READ what the public website needs (cars, offers,
---         website settings/contacts, services, assurances, agencies).
---       • authenticated users (admins/workers) get full access everywhere.
---     Write paths for the public site go through SECURITY DEFINER RPCs above.
+-- 13. ROW LEVEL SECURITY
+--       • authenticated users (admins/workers logged in via Supabase Auth) get
+--         full access everywhere.
+--       • public/anon can READ what the public website needs.
+--       • public site WRITES go through the SECURITY DEFINER RPCs above.
+--       • car_owners has NO anon policy (private owner data).
 -- ============================================================================
 
--- 11.1 Enable RLS on all app tables
+-- 13.1 Enable RLS on all app tables
 do $$
 declare t text;
 begin
@@ -920,14 +1349,15 @@ begin
     'reservations','reservation_services','payments',
     'inspection_checklist_items','vehicle_inspections','inspection_responses',
     'special_offers','offers','promo_codes','website_contacts',
-    'website_settings','agency_settings','document_templates','admin_sessions'
+    'website_settings','agency_settings','document_templates','admin_sessions',
+    'car_owners'
   ]
   loop
     execute format('alter table public.%I enable row level security;', t);
   end loop;
 end $$;
 
--- 11.2 Full access for authenticated users (admins + workers logged in via Supabase Auth)
+-- 13.2 Full access for authenticated users (admins + workers)
 do $$
 declare t text;
 begin
@@ -939,7 +1369,8 @@ begin
     'reservations','reservation_services','payments',
     'inspection_checklist_items','vehicle_inspections','inspection_responses',
     'special_offers','offers','promo_codes','website_contacts',
-    'website_settings','agency_settings','document_templates','admin_sessions'
+    'website_settings','agency_settings','document_templates','admin_sessions',
+    'car_owners'
   ]
   loop
     execute format('drop policy if exists "%1$s_authenticated_all" on public.%1$I;', t);
@@ -949,7 +1380,7 @@ begin
   end loop;
 end $$;
 
--- 11.3 Public (anon) READ access for the tables the public website reads
+-- 13.3 Public (anon) READ access for the tables the public website reads
 do $$
 declare t text;
 begin
@@ -966,44 +1397,54 @@ begin
   end loop;
 end $$;
 
--- 11.4 Login page needs to read admin_count / profiles anonymously (to decide
---      whether the "Create admin account" button is shown) and to insert the
---      first admin's profile row during signup.
-drop policy if exists "profiles_public_read"   on public.profiles;
+-- 13.4 Login page: read admin_count/profiles anonymously (decide whether to show
+--      the "Create admin account" button) and insert the first admin's profile.
+drop policy if exists "profiles_public_read"    on public.profiles;
 drop policy if exists "profiles_signup_insert"  on public.profiles;
-create policy "profiles_public_read"  on public.profiles for select to anon, authenticated using (true);
+create policy "profiles_public_read"   on public.profiles for select to anon, authenticated using (true);
 create policy "profiles_signup_insert" on public.profiles for insert to anon, authenticated with check (true);
 
--- The admin_count view runs with the querying role; allow anon to read it.
 grant select on public.admin_count to anon, authenticated;
 
--- 11.5 Allow the public website to READ reservations dates (calendar) — needed
---      by getReservedDateRangesForCar fallback when the RPC is absent.
+-- 13.5 Public website reads reservation dates (calendar fallback).
 drop policy if exists "reservations_public_read" on public.reservations;
 create policy "reservations_public_read" on public.reservations for select to anon using (true);
 
+-- 13.6 car_owners + consignment_earnings : authenticated only, never anon.
+revoke all on public.car_owners          from anon;
+grant select, insert, update, delete on public.car_owners to authenticated;
+revoke all on public.consignment_earnings from anon;
+grant select on public.consignment_earnings to authenticated;
+
 
 -- ============================================================================
--- 12. GRANTS FOR RPC FUNCTIONS (callable by anon + authenticated)
+-- 14. GRANTS FOR RPC FUNCTIONS (callable by anon + authenticated)
 -- ============================================================================
-grant execute on function public.login_worker(text, text)                         to anon, authenticated;
-grant execute on function public.get_reserved_periods(uuid)                        to anon, authenticated;
-grant execute on function public.get_unavailable_car_ids(date, date)               to anon, authenticated;
-grant execute on function public.verify_promo_code(text)                           to anon, authenticated;
-grant execute on function public.create_website_reservation(jsonb, jsonb, jsonb, text) to anon, authenticated;
-grant execute on function public.create_admin_session(text, text, bigint, text, text)  to authenticated;
-grant execute on function public.validate_session(text)                            to anon, authenticated;
-grant execute on function public.invalidate_session(text)                          to anon, authenticated;
+grant execute on function public.login_worker(text, text)                              to anon, authenticated;
+grant execute on function public.get_worker_account(text, text)                         to anon, authenticated;
+grant execute on function public.update_worker_account(text, text, text, text, text, text, text) to anon, authenticated;
+grant execute on function public.get_reserved_periods(uuid)                             to anon, authenticated;
+grant execute on function public.get_unavailable_car_ids(date, date)                    to anon, authenticated;
+grant execute on function public.verify_promo_code(text)                                to anon, authenticated;
+grant execute on function public.create_website_reservation(jsonb, jsonb, jsonb, text)  to anon, authenticated;
+grant execute on function public.create_admin_session(text, text, bigint, text, text)   to authenticated;
+grant execute on function public.validate_session(text)                                 to anon, authenticated;
+grant execute on function public.invalidate_session(text)                               to anon, authenticated;
+
 
 -- ============================================================================
---  DONE.
---  Next steps in the Supabase dashboard:
---    1. Authentication > Providers > Email: keep "Enable Email provider" ON.
---       (Optional) turn OFF "Confirm email" so the first admin can sign in
---       immediately after creating the account from the login page.
---    2. Create your first admin from the app's login page ("Créer un compte
---       administrateur"). It will appear under Authentication > Users, and the
---       button will disappear automatically once the admin exists.
---    3. Add workers from the Team (Équipe) interface — each one is mirrored to
---       Authentication > Users, aligned by email + password.
+-- 15. SEED — a single settings row so branding reads never return empty.
+-- ============================================================================
+insert into public.website_settings (id, name, description, logo, navbar_logo,
+  phone_number_2, bank_number, address, phone, landing_background, singleton, updated_at)
+select '00000000-0000-0000-0000-000000000001', 'AutoLocation', '', '', '',
+       '', '', '', '', '', true, now()
+where not exists (select 1 from public.website_settings);
+
+-- Force PostgREST to reload its schema cache so every new column/RPC is visible
+-- to the REST API immediately (otherwise the first calls may return PGRST204).
+notify pgrst, 'reload schema';
+
+-- ============================================================================
+--  DONE. Create your first admin from the app's LOGIN page.
 -- ============================================================================

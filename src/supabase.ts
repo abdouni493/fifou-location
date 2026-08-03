@@ -1,9 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
-// default values from the shared Supabase project (used when env vars aren't supplied)
-const DEFAULT_SUPABASE_URL = 'https://xpnqyimmfxllquaccuoa.supabase.co';
+// default values from the Supabase project (used when env vars aren't supplied)
+const DEFAULT_SUPABASE_URL = 'https://gnddziizaazbipyxpygt.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhwbnF5aW1tZnhsbHF1YWNjdW9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MzEzNDQsImV4cCI6MjA5OTAwNzM0NH0.YZdJVzX154AhIJGImjtCYWYSGFc2RyC_40IHXrxSbPQ';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduZGR6aWl6YWF6YmlweXhweWd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3ODkzMzksImV4cCI6MjEwMTM2NTMzOX0.p2ABkLb-U2ZGhWlRUV9JxlxH5bTr9pvdHGDLvOOqv8Q';
 
 const supabaseUrl =
   import.meta.env.VITE_SUPABASE_URL ||
