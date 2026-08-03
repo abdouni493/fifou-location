@@ -152,7 +152,7 @@ export const generateContractHTML = (
           print-color-adjust: exact;
         }
         :root {
-          --blue: #1e3a8a;
+          --blue: #7f1d1d;
           --red: #d32f2f;
           --ink: #111827;
           --border: #c3cfe2;

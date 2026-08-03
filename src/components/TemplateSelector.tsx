@@ -196,13 +196,13 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({
         }
 
         .template-item:hover {
-          border-color: #3b82f6;
-          background: #f0f9ff;
+          border-color: #dc2626;
+          background: #fef2f2;
         }
 
         .template-item.selected {
-          border-color: #3b82f6;
-          background: #eff6ff;
+          border-color: #dc2626;
+          background: #fef2f2;
         }
 
         .template-item input[type='radio'] {
@@ -232,13 +232,13 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({
         }
 
         .badge-primary {
-          background: #dbeafe;
-          color: #1e40af;
+          background: #fee2e2;
+          color: #7f1d1d;
         }
 
         .badge-info {
-          background: #dbeafe;
-          color: #1e40af;
+          background: #fee2e2;
+          color: #7f1d1d;
         }
 
         .template-actions {
@@ -259,12 +259,12 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({
         }
 
         .btn-primary {
-          background: #3b82f6;
+          background: #dc2626;
           color: white;
         }
 
         .btn-primary:hover:not(:disabled) {
-          background: #2563eb;
+          background: #b91c1c;
         }
 
         .btn-primary:disabled {

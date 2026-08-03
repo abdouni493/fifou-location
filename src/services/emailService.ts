@@ -120,7 +120,7 @@ export class EmailService {
       align-items: center;
       margin-bottom: 20px;
       padding-bottom: 15px;
-      border-bottom: 3px solid #3b82f6;
+      border-bottom: 3px solid #dc2626;
       page-break-after: avoid;
     }
     
@@ -180,7 +180,7 @@ export class EmailService {
       font-size: 13px;
       font-weight: 900;
       color: #fff;
-      background: #3b82f6;
+      background: #dc2626;
       padding: 8px 12px;
       margin: -12px -12px 12px -12px;
       border-radius: 2px 2px 0 0;
@@ -323,7 +323,7 @@ export class EmailService {
           </div>
         </div>
       </div>
-      <div class="info-row" style="font-weight: 900; font-size: 15px; color: #1f2937; border-top: 2px solid #3b82f6; padding-top: 8px; margin-top: 8px;">
+      <div class="info-row" style="font-weight: 900; font-size: 15px; color: #1f2937; border-top: 2px solid #dc2626; padding-top: 8px; margin-top: 8px;">
         <div class="info-label">${labels.total}:</div>
         <div class="info-value">${reservation.totalPrice.toLocaleString()} ${templateLang === 'ar' ? 'د.ج' : 'DA'}</div>
       </div>
@@ -606,7 +606,7 @@ export class EmailService {
 
       const checklistHTML = Object.entries(groupedItems).map(([cat, items]) => `
         <div style="margin-bottom:10px;">
-          <div style="font-weight:700;font-size:12px;color:#1a3a8a;padding:5px 8px;background:#f0f1f3;border-left:4px solid #2563eb;border-radius:3px;margin-bottom:4px;">
+          <div style="font-weight:700;font-size:12px;color:#7f1d1d;padding:5px 8px;background:#f0f1f3;border-left:4px solid #b91c1c;border-radius:3px;margin-bottom:4px;">
             ${categoryLabels[cat] || cat}
           </div>
           ${(items as any[]).map(item => `
@@ -627,35 +627,35 @@ export class EmailService {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; color: #222; background: white; line-height: 1.5; direction: ${textDir}; font-size: 13px; }
     .page { width: 100%; max-width: 210mm; padding: 12mm; margin: 0 auto; background: white; }
-    .header { border-bottom: 3px solid #1a3a8a; padding-bottom: 8px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+    .header { border-bottom: 3px solid #7f1d1d; padding-bottom: 8px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
     .logo { width: 40px; height: 40px; object-fit: contain; flex-shrink: 0; }
     .header-text { flex: 1; }
-    .agency-name { font-size: 20px; font-weight: bold; color: #1a3a8a; text-align: center; margin-bottom: 2px; }
+    .agency-name { font-size: 20px; font-weight: bold; color: #7f1d1d; text-align: center; margin-bottom: 2px; }
     .agency-contact { font-size: 10px; color: #555; text-align: center; }
     .doc-title { font-size: 13px; color: #555; text-align: center; margin-top: 2px; }
     .info-boxes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 10px; }
     .ibox { padding: 6px 8px; border-radius: 4px; font-size: 11px; }
-    .ibox.blue  { background: #dbeafe; border-left: 4px solid #2563eb; }
+    .ibox.blue  { background: #fee2e2; border-left: 4px solid #b91c1c; }
     .ibox.green { background: #dcfce7; border-left: 4px solid #16a34a; }
     .ibox.amber { background: #fef3c7; border-left: 4px solid #d97706; }
     .ibox-label { font-weight: 600; color: #222; margin-bottom: 2px; font-size: 10px; }
     .ibox-value { color: #333; font-size: 11px; font-weight: 600; }
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
     .section { padding: 8px 10px; border-radius: 5px; border: 1px solid #e5e7eb; margin-bottom: 8px; }
-    .section.client-s  { background: #f0f9ff; border-color: #bfdbfe; }
+    .section.client-s  { background: #fef2f2; border-color: #fecaca; }
     .section.vehicle-s { background: #f0fdf4; border-color: #bbf7d0; }
     .section.inspect-s { background: #f8f9fa; border-color: #e5e7eb; }
-    .section-title { font-size: 12px; font-weight: 700; background: #f0f1f3; padding: 4px 6px; border-radius: 3px; margin-bottom: 6px; border-left: 4px solid #2563eb; color: #1a3a8a; }
+    .section-title { font-size: 12px; font-weight: 700; background: #f0f1f3; padding: 4px 6px; border-radius: 3px; margin-bottom: 6px; border-left: 4px solid #b91c1c; color: #7f1d1d; }
     .field { padding: 2px 0; border-bottom: 0.5px solid #ddd; }
-    .field-label { font-weight: 600; color: #1a3a8a; font-size: 11px; }
+    .field-label { font-weight: 600; color: #7f1d1d; font-size: 11px; }
     .field-value { color: #444; font-size: 12px; margin-top: 1px; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; }
-    .notes-box { background: #f0f9ff; border: 1px solid #bfdbfe; border-left: 4px solid #2563eb; padding: 10px; border-radius: 4px; margin-bottom: 8px; font-size: 12px; color: #333; }
-    .notes-label { font-weight: 700; color: #1a3a8a; margin-bottom: 4px; font-size: 11px; }
+    .notes-box { background: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #b91c1c; padding: 10px; border-radius: 4px; margin-bottom: 8px; font-size: 12px; color: #333; }
+    .notes-label { font-weight: 700; color: #7f1d1d; margin-bottom: 4px; font-size: 11px; }
     .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 14px; }
     .sig-block { text-align: center; }
     .sig-line { border-top: 1px solid #333; margin-bottom: 4px; height: 30px; }
-    .sig-label { font-weight: 600; font-size: 12px; color: #1a3a8a; }
+    .sig-label { font-weight: 600; font-size: 12px; color: #7f1d1d; }
     .sig-date  { font-size: 10px; color: #666; margin-top: 2px; }
   </style>
 </head>
@@ -800,10 +800,10 @@ export class EmailService {
   // ─── SHARED HTML HEADER ──────────────────────────────────────────────────────
   private static agencyHeaderHTML(ag: ReturnType<typeof EmailService['loadAgency']> extends Promise<infer T> ? T : never, docTitle: string, textDir: string): string {
     return `
-    <div style="border-bottom:3px solid #1a3a8a;padding-bottom:8px;margin-bottom:10px;display:flex;align-items:center;gap:10px;">
+    <div style="border-bottom:3px solid #7f1d1d;padding-bottom:8px;margin-bottom:10px;display:flex;align-items:center;gap:10px;">
       ${ag.logo ? `<img src="${ag.logo}" alt="Logo" style="width:40px;height:40px;object-fit:contain;flex-shrink:0;">` : ''}
       <div style="flex:1;">
-        <div style="font-size:20px;font-weight:bold;color:#1a3a8a;text-align:center;margin-bottom:2px;">${ag.name}</div>
+        <div style="font-size:20px;font-weight:bold;color:#7f1d1d;text-align:center;margin-bottom:2px;">${ag.name}</div>
         <div style="font-size:10px;color:#555;text-align:center;">
           ${ag.address}${ag.phone ? ` &nbsp;|&nbsp; 📞 ${this.ltrPhone(ag.phone)}` : ''}${ag.phone2 ? ` &nbsp;|&nbsp; 📱 ${this.ltrPhone(ag.phone2)}` : ''}
         </div>
@@ -1542,7 +1542,7 @@ export class EmailService {
     }
     /* Header */
     .header {
-      border-bottom: 3px solid #1a3a8a;
+      border-bottom: 3px solid #7f1d1d;
       padding-bottom: 8px;
       margin-bottom: 10px;
       display: flex;
@@ -1551,7 +1551,7 @@ export class EmailService {
     }
     .logo { width: 40px; height: 40px; object-fit: contain; flex-shrink: 0; }
     .header-text { flex: 1; }
-    .agency-name { font-size: 20px; font-weight: bold; color: #1a3a8a; text-align: center; margin-bottom: 2px; }
+    .agency-name { font-size: 20px; font-weight: bold; color: #7f1d1d; text-align: center; margin-bottom: 2px; }
     .agency-contact { font-size: 10px; color: #555; text-align: center; line-height: 1.4; }
     .contract-title { font-size: 13px; color: #555; text-align: center; margin-top: 2px; }
     /* Info boxes row */
@@ -1562,7 +1562,7 @@ export class EmailService {
       margin-bottom: 10px;
     }
     .info-box { padding: 6px 8px; border-radius: 4px; font-size: 11px; line-height: 1.3; }
-    .info-box.blue   { background: #dbeafe; border-left: 4px solid #2563eb; }
+    .info-box.blue   { background: #fee2e2; border-left: 4px solid #b91c1c; }
     .info-box.green  { background: #dcfce7; border-left: 4px solid #16a34a; }
     .info-box.amber  { background: #fef3c7; border-left: 4px solid #d97706; }
     .info-label { font-weight: 600; color: #222; margin-bottom: 2px; font-size: 10px; }
@@ -1574,7 +1574,7 @@ export class EmailService {
       border-radius: 5px;
       border: 1px solid #e5e7eb;
     }
-    .section.driver-section   { background: #f0f9ff; border-color: #bfdbfe; }
+    .section.driver-section   { background: #fef2f2; border-color: #fecaca; }
     .section.vehicle-section  { background: #f0fdf4; border-color: #bbf7d0; }
     .section.pricing-section  { background: #fffbeb; border-color: #fde68a; }
     .section.conditions-section{ background: #faf5ff; border-color: #e9d5ff; }
@@ -1585,8 +1585,8 @@ export class EmailService {
       padding: 4px 6px;
       border-radius: 3px;
       margin-bottom: 6px;
-      border-left: 4px solid #2563eb;
-      color: #1a3a8a;
+      border-left: 4px solid #b91c1c;
+      color: #7f1d1d;
     }
     .section-content {
       display: grid;
@@ -1595,13 +1595,13 @@ export class EmailService {
       font-size: 12px;
     }
     .field { padding: 2px 0; border-bottom: 0.5px solid #ddd; }
-    .field-label { font-weight: 600; color: #1a3a8a; font-size: 11px; }
+    .field-label { font-weight: 600; color: #7f1d1d; font-size: 11px; }
     .field-value { color: #444; font-size: 12px; margin-top: 1px; }
     /* Two-column layout */
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     /* Pricing rows */
     .pricing-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 0.5px solid #ddd; font-size: 13px; }
-    .pricing-row.grand-total { font-size: 14px; font-weight: 700; color: #1a3a8a; border-top: 2px solid #1a3a8a; border-bottom: none; padding-top: 4px; margin-top: 2px; }
+    .pricing-row.grand-total { font-size: 14px; font-weight: 700; color: #7f1d1d; border-top: 2px solid #7f1d1d; border-bottom: none; padding-top: 4px; margin-top: 2px; }
     /* Conditions grid */
     .conditions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 12px; }
     .condition-item { display: flex; align-items: center; gap: 4px; }
@@ -1617,7 +1617,7 @@ export class EmailService {
     .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 14px; }
     .signature-block { text-align: center; }
     .signature-line { border-top: 1px solid #333; margin-bottom: 4px; height: 30px; }
-    .signature-label { font-weight: 600; font-size: 12px; color: #1a3a8a; }
+    .signature-label { font-weight: 600; font-size: 12px; color: #7f1d1d; }
     .date-sig { font-size: 10px; color: #666; margin-top: 2px; }
   </style>
 </head>
@@ -1814,7 +1814,7 @@ export class EmailService {
 
   /**
    * Generate reservation booking voucher — same professional design / colours / organisation
-   * as the printed contract (blue #1a3a8a), but limited to the client, the vehicle and the
+   * as the printed contract (blue #7f1d1d), but limited to the client, the vehicle and the
    * date & time of the reservation, plus the agency information and logo.
    */
   private static async generateReservationEmailHTML(reservation: ReservationDetails, templateLang: string = 'ar'): Promise<string> {
@@ -1887,36 +1887,36 @@ export class EmailService {
     }
     .page { width: 100%; max-width: 210mm; padding: 12mm; margin: 0 auto; background: white; }
     /* Header */
-    .header { border-bottom: 3px solid #1a3a8a; padding-bottom: 8px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+    .header { border-bottom: 3px solid #7f1d1d; padding-bottom: 8px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
     .logo { width: 40px; height: 40px; object-fit: contain; flex-shrink: 0; }
     .header-text { flex: 1; }
-    .agency-name { font-size: 20px; font-weight: bold; color: #1a3a8a; text-align: center; margin-bottom: 2px; }
+    .agency-name { font-size: 20px; font-weight: bold; color: #7f1d1d; text-align: center; margin-bottom: 2px; }
     .agency-contact { font-size: 10px; color: #555; text-align: center; line-height: 1.4; }
     .doc-title { font-size: 13px; color: #555; text-align: center; margin-top: 2px; }
     /* Info boxes row */
     .header-info { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 10px; }
     .info-box { padding: 6px 8px; border-radius: 4px; font-size: 11px; line-height: 1.3; }
-    .info-box.blue   { background: #dbeafe; border-left: 4px solid #2563eb; }
+    .info-box.blue   { background: #fee2e2; border-left: 4px solid #b91c1c; }
     .info-box.green  { background: #dcfce7; border-left: 4px solid #16a34a; }
     .info-box.amber  { background: #fef3c7; border-left: 4px solid #d97706; }
     .info-label { font-weight: 600; color: #222; margin-bottom: 2px; font-size: 10px; }
     .info-value { color: #333; font-size: 11px; }
     /* Sections */
     .section { margin-bottom: 8px; padding: 8px 10px; border-radius: 5px; border: 1px solid #e5e7eb; }
-    .section.client-section   { background: #f0f9ff; border-color: #bfdbfe; }
+    .section.client-section   { background: #fef2f2; border-color: #fecaca; }
     .section.vehicle-section  { background: #f0fdf4; border-color: #bbf7d0; }
     .section.period-section   { background: #fffbeb; border-color: #fde68a; }
-    .section-title { font-size: 12px; font-weight: 700; background: #f0f1f3; padding: 4px 6px; border-radius: 3px; margin-bottom: 6px; border-left: 4px solid #2563eb; color: #1a3a8a; }
+    .section-title { font-size: 12px; font-weight: 700; background: #f0f1f3; padding: 4px 6px; border-radius: 3px; margin-bottom: 6px; border-left: 4px solid #b91c1c; color: #7f1d1d; }
     .section-content { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; font-size: 12px; }
     .field { padding: 2px 0; border-bottom: 0.5px solid #ddd; }
-    .field-label { font-weight: 600; color: #1a3a8a; font-size: 11px; }
+    .field-label { font-weight: 600; color: #7f1d1d; font-size: 11px; }
     .field-value { color: #444; font-size: 12px; margin-top: 1px; }
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     /* Signatures */
     .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 14px; }
     .signature-block { text-align: center; }
     .signature-line { border-top: 1px solid #333; margin-bottom: 4px; height: 30px; }
-    .signature-label { font-weight: 600; font-size: 12px; color: #1a3a8a; }
+    .signature-label { font-weight: 600; font-size: 12px; color: #7f1d1d; }
     .date-sig { font-size: 10px; color: #666; margin-top: 2px; }
   </style>
 </head>

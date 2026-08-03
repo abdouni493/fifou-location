@@ -2,11 +2,16 @@
 const fs = require('fs');
 const path = require('path');
 
-const OUT = path.join('c:/Users/Admin/Desktop/auto location salam', 'src/styles/theme-carbon.css');
+const OUT = path.join(__dirname, '..', 'src/styles/theme-carbon.css');
 
 // Teintes Tailwind utilisées par l'admin : base (500) + variante lisible sur noir (300).
+// MARQUE FIFOU AUTO : les teintes FROIDES (bleu/indigo/ciel/cyan) — l'ancien
+// accent de marque — sont réécrites sur le ROUGE du logo, pour que le carbone
+// parle la même couleur que le reste. Les signaux fonctionnels (vert, ambre…)
+// gardent leur teinte.
+const RED = ['#ef4444', '#fca5a5'];
 const HUES = {
-  red:     ['#ef4444', '#fca5a5'],
+  red:     RED,
   rose:    ['#f43f5e', '#fda4af'],
   orange:  ['#f97316', '#fdba74'],
   amber:   ['#f59e0b', '#fcd34d'],
@@ -15,10 +20,10 @@ const HUES = {
   green:   ['#22c55e', '#86efac'],
   emerald: ['#10b981', '#6ee7b7'],
   teal:    ['#14b8a6', '#5eead4'],
-  cyan:    ['#06b6d4', '#67e8f9'],
-  sky:     ['#0ea5e9', '#7dd3fc'],
-  blue:    ['#3b82f6', '#93c5fd'],
-  indigo:  ['#6366f1', '#a5b4fc'],
+  cyan:    RED,   // ex-cyan  → rouge marque
+  sky:     RED,   // ex-ciel  → rouge marque
+  blue:    RED,   // ex-bleu  → rouge marque
+  indigo:  RED,   // ex-indigo → rouge marque
   violet:  ['#8b5cf6', '#c4b5fd'],
   purple:  ['#a855f7', '#d8b4fe'],
   fuchsia: ['#d946ef', '#f0abfc'],

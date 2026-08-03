@@ -64,12 +64,20 @@
   --dur-exit:   180ms;
   --dur-micro:  180ms;
 
-  /* Legacy saas vars kept for admin compatibility */
-  --color-saas-primary-start:   #1e3a8a;
-  --color-saas-primary-via:     #1d4ed8;
-  --color-saas-primary-end:     #0891b2;
-  --color-saas-secondary-start: #475569;
-  --color-saas-secondary-end:   #4f46e5;
+  /* === MARQUE FIFOU AUTO ===
+     Le logo : carbone noir · lettrage chrome · rouge vif glossy.
+     Le PRIMAIRE de l'admin (clair) était bleu marine → cyan. On le passe au
+     rouge du logo pour que TOUTES les interfaces parlent la même couleur.
+     Le rouge de REMPLISSAGE (-via, texte blanc dessus) reste assez profond
+     pour rester lisible (blanc sur #D10E1C ≈ 5:1). */
+  --color-saas-primary-start:   #F5231C;  /* rouge vif — reflet clair du logo */
+  --color-saas-primary-via:     #D10E1C;  /* rouge de remplissage lisible */
+  --color-saas-primary-end:     #8A0A12;  /* rouge sang profond — ombre */
+  /* Secondaire = acier/graphite (chrome sombre), plus aucun indigo bleu. */
+  --color-saas-secondary-start: #3F444C;
+  --color-saas-secondary-end:   #23262C;
+  /* Signaux fonctionnels conservés (succès/avertissement) : un tableau de bord
+     a besoin du vert et de l'ambre. Le danger est déjà rouge. */
   --color-saas-warning-start:   #f59e0b;
   --color-saas-warning-end:     #ea580c;
   --color-saas-success-start:   #10b981;
@@ -81,6 +89,33 @@
   --color-saas-border:          #e2e8f0;
   --color-saas-text-main:       #0f172a;
   --color-saas-text-muted:      #64748b;
+
+  /* === REMAP BLEU → ROUGE (marque FIFOU AUTO) ===
+     ~800 utilitaires bleu/indigo/ciel/cyan traînaient dans 65 composants comme
+     accent « de marque » concurrent du rouge. Tailwind v4 compile chaque
+     `bg-blue-500` en `var(--color-blue-500)` : en réécrivant ces échelles vers
+     l'échelle rouge, tous ces accents deviennent rouges d'un coup, partout,
+     sans toucher un seul composant. (Le thème carbone fait de même via son
+     générateur.) On réutilise l'échelle rouge de Tailwind : contrastes sûrs. */
+  --color-blue-50:  #fef2f2; --color-blue-100: #fee2e2; --color-blue-200: #fecaca;
+  --color-blue-300: #fca5a5; --color-blue-400: #f87171; --color-blue-500: #ef4444;
+  --color-blue-600: #dc2626; --color-blue-700: #b91c1c; --color-blue-800: #991b1b;
+  --color-blue-900: #7f1d1d; --color-blue-950: #450a0a;
+
+  --color-indigo-50:  #fef2f2; --color-indigo-100: #fee2e2; --color-indigo-200: #fecaca;
+  --color-indigo-300: #fca5a5; --color-indigo-400: #f87171; --color-indigo-500: #ef4444;
+  --color-indigo-600: #dc2626; --color-indigo-700: #b91c1c; --color-indigo-800: #991b1b;
+  --color-indigo-900: #7f1d1d; --color-indigo-950: #450a0a;
+
+  --color-sky-50:  #fef2f2; --color-sky-100: #fee2e2; --color-sky-200: #fecaca;
+  --color-sky-300: #fca5a5; --color-sky-400: #f87171; --color-sky-500: #ef4444;
+  --color-sky-600: #dc2626; --color-sky-700: #b91c1c; --color-sky-800: #991b1b;
+  --color-sky-900: #7f1d1d; --color-sky-950: #450a0a;
+
+  --color-cyan-50:  #fef2f2; --color-cyan-100: #fee2e2; --color-cyan-200: #fecaca;
+  --color-cyan-300: #fca5a5; --color-cyan-400: #f87171; --color-cyan-500: #ef4444;
+  --color-cyan-600: #dc2626; --color-cyan-700: #b91c1c; --color-cyan-800: #991b1b;
+  --color-cyan-900: #7f1d1d; --color-cyan-950: #450a0a;
 }
 
 /* ── Global ──
