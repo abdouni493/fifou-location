@@ -182,7 +182,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         webOrdersCount={webOrdersCount}
       />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Navbar
           user={user}
           lang={lang}
@@ -192,7 +192,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
         {/* Le rembourrage suit la taille de l'écran : 16 px au pouce, 32 px au
             bureau. À 8 px partout, les cartes touchaient le bord du téléphone. */}
-        <main className="fx-page-shell flex-1 min-w-0 p-3 sm:p-5 lg:p-8 fx-safe-b">
+        <main className="fx-page-shell flex-1 min-w-0 p-3 sm:p-5 lg:p-8 fx-safe-b overflow-y-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
