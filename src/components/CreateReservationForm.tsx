@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Language, ReservationDetails, ReservationWizardData, Client, Car, VehicleInspection, Payment, AdditionalService, ProtectionAssurance } from '../types';
 import { getDeliveryFeePayer } from '../utils/deliveryFee';
 import {
@@ -14,6 +14,7 @@ import { ReservationsService } from '../services/ReservationsService';
 import { uploadInspectionImage } from '../services/uploadInspectionImage';
 import { ClientModal } from './ClientModal';
 import { supabase } from '../supabase';
+import { Modal, Field, Btn } from './ui/fx';
 
 // Signature Pad Component
 const SignaturePad: React.FC<{
@@ -161,23 +162,23 @@ export const CreateReservationForm: React.FC<CreateReservationFormProps> = ({ la
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Load agencies from database on component mount
-  useEffect(() => {
-    const loadAgencies = async () => {
-      try {
-        setIsLoadingAgencies(true);
-        const data = await DatabaseService.getAgencies();
-        setAgencies(data || []);
-      } catch (err) {
-        console.error('Error loading agencies:', err);
-        // Fallback to constants if database fails
-        setAgencies(AGENCIES);
-      } finally {
-        setIsLoadingAgencies(false);
-      }
-    };
-
-    loadAgencies();
+  const loadAgencies = useCallback(async () => {
+    try {
+      setIsLoadingAgencies(true);
+      const data = await DatabaseService.getAgencies();
+      setAgencies(data || []);
+      return data || [];
+    } catch (err) {
+      console.error('Error loading agencies:', err);
+      // Fallback to constants if database fails
+      setAgencies(AGENCIES);
+      return AGENCIES;
+    } finally {
+      setIsLoadingAgencies(false);
+    }
   }, []);
+
+  useEffect(() => { loadAgencies(); }, [loadAgencies]);
 
   // When in inspection mode with initialData, map additionalServices and other data to step5
   useEffect(() => {
@@ -280,6 +281,32 @@ export const CreateReservationForm: React.FC<CreateReservationFormProps> = ({ la
   const isDepartureChecklistTouched = (formData.step3?.departureInspection?.inspectionItems ?? [])
     .some((item: any) => item?.checked);
   const resolvedStatus: 'pending' | 'confirmed' = isDepartureChecklistTouched ? 'confirmed' : 'pending';
+
+  /**
+   * Agence par défaut : la première de la liste.
+   *
+   * La plupart des agences n'en ont qu'une. Laisser le champ vide obligeait à
+   * un clic inutile à chaque réservation — et, oublié, il bloquait la
+   * validation trois étapes plus loin. En mode inspection on ne touche à rien :
+   * la réservation existe déjà avec son agence.
+   */
+  useEffect(() => {
+    if (inspectionMode || isLoadingAgencies || agencies.length === 0) return;
+    if (formData.step1?.departureAgencyId) return;
+
+    const first = agencies[0];
+    setFormData(prev => ({
+      ...prev,
+      step1: {
+        ...prev.step1,
+        departureAgencyId: first.id,
+        departureLocation: first.name || first.address || '',
+        returnAgencyId: prev.step1?.returnAgencyId || first.id,
+        returnLocation: prev.step1?.returnLocation || first.name || first.address || '',
+      },
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agencies, isLoadingAgencies, inspectionMode, formData.step1?.departureAgencyId]);
 
   const totalSteps = 6;
   const steps = [
@@ -661,59 +688,99 @@ export const CreateReservationForm: React.FC<CreateReservationFormProps> = ({ la
         )}
       </AnimatePresence>
 
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-6 text-white">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-white hover:text-blue-200 font-bold"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            {lang === 'fr' ? 'Retour' : 'العودة'}
+      {/* ── En-tête ── */}
+      <div className="fx-hero p-4 sm:p-5">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <button onClick={onBack} className="fx-icon-btn p-2.5 shrink-0" aria-label={lang === 'fr' ? 'Retour' : 'العودة'}>
+            <ArrowLeft className="w-4 h-4" />
           </button>
-          <div>
-            <h2 className="text-3xl font-black text-white uppercase tracking-tighter">
+          <div className="min-w-0 flex-1">
+            <p className="fx-eyebrow">
               {inspectionMode
-                ? `🔍 ${lang === 'fr' ? 'Inspection de Départ' : 'فحص المغادرة'}`
-                : `➕ ${lang === 'fr' ? 'Nouvelle Réservation' : 'حجز جديد'}`}
+                ? (lang === 'fr' ? 'Check-list' : 'قائمة الفحص')
+                : `${lang === 'fr' ? 'Étape' : 'الخطوة'} ${currentStep}/${totalSteps}`}
+            </p>
+            <h2 className="fx-title text-lg sm:text-2xl leading-tight truncate">
+              {inspectionMode
+                ? `🔍 ${lang === 'fr' ? 'Inspection de départ' : 'فحص المغادرة'}`
+                : `➕ ${lang === 'fr' ? 'Nouvelle réservation' : 'حجز جديد'}`}
             </h2>
-            <p className="text-white font-bold uppercase text-[10px] tracking-widest">
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--fx-ink-mute)' }}>
               {inspectionMode
                 ? (lang === 'fr'
-                    ? 'Remplissez la check-list puis enregistrez pour confirmer'
-                    : 'املأ قائمة الفحص ثم احفظ للتأكيد')
-                : `${lang === 'fr' ? 'Étape' : 'الخطوة'} ${currentStep} ${lang === 'fr' ? 'sur' : 'من'} 6`}
+                    ? 'Remplissez la check-list, puis enregistrez pour confirmer la réservation.'
+                    : 'املأ قائمة الفحص ثم احفظ لتأكيد الحجز.')
+                : steps[currentStep - 1]?.title}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Progress Bar — sans objet en mode inspection : il n'y a qu'un seul écran. */}
+      {/* ── Fil des étapes ──
+          Sans objet en mode inspection : il n'y a qu'un seul écran.
+          Sur téléphone, la file défile horizontalement au lieu de compresser
+          six pastilles illisibles sur 360 px. */}
       {!inspectionMode && (
-        <div className="bg-white rounded-2xl shadow-lg p-6 border border-slate-200">
-          <div className="flex items-center justify-between mb-4">
-            {steps.map((step) => (
-              <div key={step.id} className="flex flex-col items-center flex-1">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg mb-2 transition-colors ${
-                  step.id < currentStep ? 'bg-green-500 text-white' :
-                  step.id === currentStep ? 'bg-blue-500 text-white' :
-                  'bg-slate-200 text-slate-500'
-                }`}>
-                  {step.id < currentStep ? <CheckCircle className="w-6 h-6" /> : step.icon}
-                </div>
-                <p className={`text-xs font-bold text-center ${
-                  step.id <= currentStep ? 'text-slate-900' : 'text-slate-500'
-                }`}>
-                  {step.title}
-                </p>
-              </div>
-            ))}
+        <div className="fx-panel p-4">
+          <div className="fx-table-wrap custom-scrollbar mb-3">
+            <div className="flex items-start gap-1 min-w-max sm:min-w-0">
+              {steps.map((step, i) => {
+                const done = step.id < currentStep;
+                const active = step.id === currentStep;
+                return (
+                  <React.Fragment key={step.id}>
+                    <button
+                      type="button"
+                      onClick={() => { if (done) setCurrentStep(step.id); }}
+                      disabled={!done && !active}
+                      className="flex flex-col items-center gap-1.5 w-20 sm:w-auto sm:flex-1 shrink-0 disabled:cursor-default"
+                    >
+                      <span
+                        className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-base transition-all"
+                        style={
+                          done
+                            ? {
+                                backgroundImage: 'linear-gradient(135deg, #10A46F, #0A7350)',
+                                color: '#fff',
+                                border: '1px solid rgba(52,211,153,0.5)',
+                              }
+                            : active
+                            ? {
+                                backgroundImage: 'var(--fx-grad-red)',
+                                color: '#fff',
+                                border: '1px solid var(--fx-line-red-hi)',
+                                boxShadow: '0 0 20px -6px rgba(200,16,46,0.9)',
+                              }
+                            : {
+                                backgroundImage: 'var(--fx-grad-well)',
+                                color: 'var(--fx-ink-dim)',
+                                border: '1px solid var(--fx-line)',
+                              }
+                        }
+                      >
+                        {done ? <CheckCircle className="w-5 h-5" /> : step.icon}
+                      </span>
+                      <span
+                        className="text-[10px] font-bold text-center leading-tight px-0.5"
+                        style={{ color: done || active ? 'var(--fx-ink)' : 'var(--fx-ink-dim)' }}
+                      >
+                        {step.title}
+                      </span>
+                    </button>
+                    {i < steps.length - 1 && (
+                      <span
+                        className="hidden sm:block h-px flex-1 mt-5"
+                        style={{ background: done ? 'rgba(52,211,153,0.5)' : 'var(--fx-line)' }}
+                      />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
           </div>
-          <div className="w-full bg-slate-200 rounded-full h-2">
-            <div
-              className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(currentStep / totalSteps) * 100}%` }}
-            />
+
+          <div className="fx-meter">
+            <div className="fx-meter-fill" style={{ width: `${(currentStep / totalSteps) * 100}%` }} />
           </div>
         </div>
       )}
@@ -722,14 +789,14 @@ export const CreateReservationForm: React.FC<CreateReservationFormProps> = ({ la
       <AnimatePresence mode="wait">
         <motion.div
           key={currentStep}
-          initial={{ opacity: 0, x: 20 }}
+          initial={{ opacity: 0, x: 16 }}
           animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.3 }}
-          className="bg-white rounded-2xl shadow-lg border border-slate-200"
+          exit={{ opacity: 0, x: -16 }}
+          transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+          className="fx-card fx-card-flat"
         >
-          <div className="p-8">
-            {currentStep === 1 && <Step1DatesLocations lang={lang} formData={formData} setFormData={setFormData} agencies={agencies} isLoadingAgencies={isLoadingAgencies} inspectionMode={inspectionMode} initialData={initialData} />}
+          <div className="p-4 sm:p-6 lg:p-8">
+            {currentStep === 1 && <Step1DatesLocations lang={lang} formData={formData} setFormData={setFormData} agencies={agencies} isLoadingAgencies={isLoadingAgencies} inspectionMode={inspectionMode} initialData={initialData} onAgenciesChanged={loadAgencies} />}
             {currentStep === 2 && <Step2VehicleSelection lang={lang} formData={formData} setFormData={setFormData} />}
             {currentStep === 3 && <Step3DepartureInspection lang={lang} formData={formData} setFormData={setFormData} />}
             {currentStep === 4 && <Step4ClientSelection lang={lang} formData={formData} setFormData={setFormData} />}
@@ -742,18 +809,25 @@ export const CreateReservationForm: React.FC<CreateReservationFormProps> = ({ la
       {/* Statut résultant — annoncé avant la soumission pour éviter la surprise. */}
       {(inspectionMode || currentStep === totalSteps) && (
         <div
-          className={`rounded-2xl p-5 border-2 ${
+          className="rounded-2xl p-4 sm:p-5"
+          style={
             resolvedStatus === 'confirmed'
-              ? 'bg-green-50 border-green-300'
-              : 'bg-amber-50 border-amber-300'
-          }`}
+              ? {
+                  backgroundImage: 'linear-gradient(135deg, rgba(16,164,111,0.16), rgba(10,115,80,0.04))',
+                  border: '1px solid rgba(52,211,153,0.42)',
+                }
+              : {
+                  backgroundImage: 'linear-gradient(135deg, rgba(217,132,16,0.15), rgba(168,92,8,0.04))',
+                  border: '1px solid rgba(251,191,36,0.42)',
+                }
+          }
         >
-          <p className={`font-black text-sm ${resolvedStatus === 'confirmed' ? 'text-green-900' : 'text-amber-900'}`}>
+          <p className="font-black text-sm" style={{ color: resolvedStatus === 'confirmed' ? '#6EE7B7' : '#FCD34D' }}>
             {resolvedStatus === 'confirmed'
               ? (lang === 'fr' ? '✅ Statut : Confirmée' : '✅ الحالة: مؤكد')
               : (lang === 'fr' ? '⏳ Statut : En attente' : '⏳ الحالة: قيد الانتظار')}
           </p>
-          <p className={`text-xs font-bold mt-1 ${resolvedStatus === 'confirmed' ? 'text-green-700' : 'text-amber-700'}`}>
+          <p className="text-xs font-medium mt-1 leading-relaxed" style={{ color: 'var(--fx-ink-mute)' }}>
             {resolvedStatus === 'confirmed'
               ? (lang === 'fr'
                   ? 'La check-list d\'inspection de départ a été remplie : la réservation sera enregistrée comme confirmée.'
@@ -769,11 +843,8 @@ export const CreateReservationForm: React.FC<CreateReservationFormProps> = ({ la
       {inspectionMode ? (
         // Écran unique : pas de « Suivant ». Enregistrer fait passer la réservation
         // en 'confirmed', d'où le verrou tant qu'aucun point n'est coché.
-        <div className="flex justify-between">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 px-6 py-3 rounded-lg font-bold bg-slate-600 hover:bg-slate-700 text-white transition-colors"
-          >
+        <div className="flex flex-col-reverse sm:flex-row justify-between gap-2.5 fx-safe-b">
+          <button onClick={onBack} className="fx-btn fx-btn-ghost flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm">
             <ArrowLeft className="w-4 h-4" />
             {lang === 'fr' ? 'Annuler' : 'إلغاء'}
           </button>
@@ -788,25 +859,17 @@ export const CreateReservationForm: React.FC<CreateReservationFormProps> = ({ la
                     ? 'Cochez au moins un point de la check-list pour enregistrer l\'inspection.'
                     : 'حدد عنصرًا واحدًا على الأقل من قائمة الفحص لحفظ الفحص.')
             }
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold transition-colors ${
-              isDepartureChecklistTouched
-                ? 'bg-green-600 hover:bg-green-700 text-white'
-                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-            }`}
+            className="fx-btn fx-btn-success flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm disabled:opacity-40 disabled:pointer-events-none"
           >
             ✅ {lang === 'fr' ? 'Enregistrer et confirmer' : 'حفظ وتأكيد'}
           </button>
         </div>
       ) : (
-        <div className="flex justify-between">
+        <div className="flex flex-col-reverse sm:flex-row justify-between gap-2.5 fx-safe-b">
           <button
             onClick={handlePrevious}
             disabled={currentStep === 1}
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold transition-colors ${
-              currentStep === 1
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                : 'bg-slate-600 hover:bg-slate-700 text-white'
-            }`}
+            className="fx-btn fx-btn-ghost flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm disabled:opacity-40 disabled:pointer-events-none"
           >
             <ArrowLeft className="w-4 h-4" />
             {lang === 'fr' ? 'Précédent' : 'السابق'}
@@ -815,7 +878,7 @@ export const CreateReservationForm: React.FC<CreateReservationFormProps> = ({ la
           {currentStep < totalSteps ? (
             <button
               onClick={handleNext}
-              className="btn-saas-primary"
+              className="fx-btn fx-btn-primary flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm"
             >
               {lang === 'fr' ? 'Suivant' : 'التالي'}
               <ArrowRight className="w-4 h-4" />
@@ -835,6 +898,97 @@ export const CreateReservationForm: React.FC<CreateReservationFormProps> = ({ la
 };
 
 // Step 1: Dates & Locations
+/**
+ * Création d'agence à la volée, depuis la première étape du wizard.
+ *
+ * L'interface « Agences » a été retirée de la barre latérale : elle ne servait
+ * qu'à alimenter ce champ. Trois informations suffisent — le nom, l'adresse et
+ * la ville — et l'agence créée est immédiatement sélectionnée.
+ */
+const QuickAgencyModal: React.FC<{
+  open: boolean;
+  lang: Language;
+  onClose: () => void;
+  onCreated: (agency: any) => void | Promise<void>;
+}> = ({ open, lang, onClose, onCreated }) => {
+  const fr = lang === 'fr';
+  const [form, setForm] = useState({ name: '', address: '', city: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (open) { setForm({ name: '', address: '', city: '' }); setError(''); }
+  }, [open]);
+
+  const submit = async () => {
+    if (!form.name.trim()) {
+      setError(fr ? "Le nom de l'agence est obligatoire." : 'اسم الوكالة مطلوب.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const created = await DatabaseService.createAgency({
+        name: form.name.trim(),
+        address: form.address.trim(),
+        city: form.city.trim(),
+      } as any);
+      await onCreated(created);
+    } catch (err: any) {
+      setError(err?.message ?? String(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      size="sm"
+      icon="🏢"
+      title={fr ? 'Nouvelle agence' : 'وكالة جديدة'}
+      subtitle={fr ? 'Elle sera sélectionnée comme lieu de départ' : 'ستُختار كمكان المغادرة'}
+      footer={
+        <>
+          <Btn tone="ghost" onClick={onClose} disabled={saving}>{fr ? 'Annuler' : 'إلغاء'}</Btn>
+          <Btn tone="primary" onClick={submit} disabled={saving}>
+            {fr ? "Créer l'agence" : 'إنشاء'}
+          </Btn>
+        </>
+      }
+    >
+      <div className="space-y-3.5">
+        <Field label={fr ? "Nom de l'agence" : 'اسم الوكالة'} required>
+          <input
+            className="fx-field" autoFocus
+            value={form.name}
+            onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+            placeholder={fr ? 'Ex. : Agence Centre-Ville' : 'مثال: وكالة وسط المدينة'}
+          />
+        </Field>
+        <Field label={fr ? 'Adresse' : 'العنوان'}>
+          <input
+            className="fx-field"
+            value={form.address}
+            onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+            placeholder={fr ? 'Rue, numéro…' : 'الشارع، الرقم…'}
+          />
+        </Field>
+        <Field label={fr ? 'Ville' : 'المدينة'}>
+          <input
+            className="fx-field"
+            value={form.city}
+            onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
+            placeholder={fr ? 'Alger, Oran…' : 'الجزائر، وهران…'}
+          />
+        </Field>
+        {error && <p className="text-sm font-semibold" style={{ color: 'var(--fx-red-300)' }}>⚠️ {error}</p>}
+      </div>
+    </Modal>
+  );
+};
+
 export const Step1DatesLocations: React.FC<{
   lang: Language;
   formData: ReservationWizardData;
@@ -843,14 +997,55 @@ export const Step1DatesLocations: React.FC<{
   isLoadingAgencies: boolean;
   inspectionMode?: boolean;
   initialData?: Partial<ReservationDetails>;
-}> = ({ lang, formData, setFormData, agencies, isLoadingAgencies, inspectionMode = false, initialData }) => {
+  /** Recharge la liste après création d'une agence depuis cette étape. */
+  onAgenciesChanged?: () => Promise<any[]> | void;
+}> = ({ lang, formData, setFormData, agencies, isLoadingAgencies, inspectionMode = false, initialData, onAgenciesChanged }) => {
   const [showReturnLocation, setShowReturnLocation] = useState(false);
+  const [showAgencyModal, setShowAgencyModal] = useState(false);
+
+  /**
+   * Une agence créée ici est aussitôt SÉLECTIONNÉE comme lieu de départ :
+   * c'est la seule raison pour laquelle on la crée depuis cet écran.
+   */
+  const handleAgencyCreated = async (created: any) => {
+    await onAgenciesChanged?.();
+    setFormData(prev => ({
+      ...prev,
+      step1: {
+        ...prev.step1,
+        departureAgencyId: created.id,
+        departureLocation: created.name || created.address || '',
+        returnAgencyId: prev.step1?.returnAgencyId || created.id,
+        returnLocation: prev.step1?.returnLocation || created.name || created.address || '',
+      },
+    }));
+    setShowAgencyModal(false);
+  };
 
   return (
-    <div className="space-y-8">
-      <h3 className="text-2xl font-black text-slate-900">
-        📅 {lang === 'fr' ? 'Dates et Lieux de Location' : 'تواريخ وأماكن التأجير'}
-      </h3>
+    <div className="space-y-6 sm:space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h3 className="fx-title text-xl sm:text-2xl">
+          📅 {lang === 'fr' ? 'Dates et lieux de location' : 'تواريخ وأماكن التأجير'}
+        </h3>
+        {!inspectionMode && (
+          <button
+            type="button"
+            onClick={() => setShowAgencyModal(true)}
+            className="fx-icon-btn px-3.5 py-2 text-xs font-bold self-start sm:self-auto"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            {lang === 'fr' ? 'Nouvelle agence' : 'وكالة جديدة'}
+          </button>
+        )}
+      </div>
+
+      <QuickAgencyModal
+        open={showAgencyModal}
+        lang={lang}
+        onClose={() => setShowAgencyModal(false)}
+        onCreated={handleAgencyCreated}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Departure */}
@@ -1804,17 +1999,66 @@ export const Step3DepartureInspection: React.FC<{
     // Intentionally only depend on checklistItems to avoid reacting to formData changes
   }, [checklistItems]);
 
-  return (
-    <div className="space-y-8">
-      <h3 className="text-2xl font-black text-slate-900">
-        🔍 {lang === 'fr' ? 'Inspection de Départ' : 'فحص المغادرة'}
-      </h3>
+  // Avancement de la check-list : le seul repère qui dit « ai-je fini ? ».
+  // On lit l'état réel du formulaire, pas la liste maître : c'est lui qui
+  // décide du statut de la réservation à l'enregistrement.
+  const inspectedItems = (formData.step3?.departureInspection?.inspectionItems ?? []) as any[];
+  const checklistTotal = Math.max(checklistItems.length, inspectedItems.length);
+  const checklistDone = inspectedItems.filter(i => i?.checked).length;
+  const checklistPct = checklistTotal > 0 ? (checklistDone / checklistTotal) * 100 : 0;
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+  return (
+    <div className="space-y-5 sm:space-y-6">
+      {/* ── En-tête : titre + avancement ── */}
+      <div
+        className="rounded-2xl p-4 sm:p-5"
+        style={{
+          backgroundImage:
+            'radial-gradient(90% 160% at 100% 0%, rgba(200,16,46,0.2), transparent 62%), var(--fx-grad-surface)',
+          border: '1px solid var(--fx-line-red)',
+          boxShadow: 'var(--fx-edge-red)',
+        }}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5">
+          <div className="min-w-0 flex-1">
+            <p className="fx-eyebrow">{lang === 'fr' ? 'Étape 3' : 'الخطوة 3'}</p>
+            <h3 className="fx-title text-xl sm:text-2xl leading-tight">
+              🔍 {lang === 'fr' ? 'Inspection de départ' : 'فحص المغادرة'}
+            </h3>
+            <p className="text-[11px] mt-1 leading-relaxed" style={{ color: 'var(--fx-ink-mute)' }}>
+              {lang === 'fr'
+                ? "Relevez le kilométrage, le carburant et l'état du véhicule, puis faites signer le client. C'est cette page qui fait foi en cas de litige au retour."
+                : 'سجّل العداد والوقود وحالة المركبة، ثم وقّع مع العميل.'}
+            </p>
+          </div>
+
+          {/* Compteur d'avancement */}
+          <div className="shrink-0 sm:w-56">
+            <div className="flex items-baseline justify-between gap-2 mb-1.5">
+              <span className="text-[10px] font-black uppercase tracking-[0.13em]" style={{ color: 'var(--fx-ink-mute)' }}>
+                {lang === 'fr' ? 'Points contrôlés' : 'النقاط المفحوصة'}
+              </span>
+              <span className="text-sm font-black tabular-nums" style={{ color: checklistDone > 0 ? 'var(--fx-red-200)' : 'var(--fx-ink-dim)' }}>
+                {checklistDone}/{checklistTotal}
+              </span>
+            </div>
+            <div className="fx-meter">
+              <div className="fx-meter-fill" style={{ width: `${checklistPct}%` }} />
+            </div>
+            <p className="mt-1.5 text-[10px]" style={{ color: checklistDone > 0 ? '#6EE7B7' : '#FCD34D' }}>
+              {checklistDone > 0
+                ? (lang === 'fr' ? '✅ Inspection en cours — réservation confirmable' : '✅ الحجز قابل للتأكيد')
+                : (lang === 'fr' ? '⏳ Cochez au moins un point pour confirmer' : '⏳ حدد نقطة واحدة على الأقل')}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Vehicle Info */}
-        <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
-          <h4 className="text-lg font-black text-slate-900 mb-4">
-            🚗 {lang === 'fr' ? 'Informations Véhicule' : 'معلومات المركبة'}
+        <div className="fx-well p-4 sm:p-5">
+          <h4 className="fx-title text-base mb-3.5">
+            🚗 {lang === 'fr' ? 'Véhicule inspecté' : 'المركبة المفحوصة'}
           </h4>
           {(formData.step2?.selectedCar || formData.car) && (
             <div className="space-y-3">
@@ -1852,9 +2096,9 @@ export const Step3DepartureInspection: React.FC<{
         </div>
 
         {/* Basic Inspection Info */}
-        <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
-          <h4 className="text-lg font-black text-slate-900 mb-4">
-            📊 {lang === 'fr' ? 'Informations de Base' : 'المعلومات الأساسية'}
+        <div className="fx-well p-4 sm:p-5">
+          <h4 className="fx-title text-base mb-3.5">
+            📊 {lang === 'fr' ? 'Relevés au départ' : 'القراءات عند المغادرة'}
           </h4>
           <div className="space-y-4">
             <div>
@@ -1886,26 +2130,51 @@ export const Step3DepartureInspection: React.FC<{
               <label className="block font-bold text-slate-900 mb-3">
                 ⛽ {lang === 'fr' ? 'Niveau de Carburant' : 'مستوى الوقود'}
               </label>
-              <div className="grid grid-cols-5 gap-2">
+              {/* Jauge de carburant : cinq crans, remplis jusqu'au niveau
+                  choisi. Cinq boutons identiques ne montraient pas qu'il
+                  s'agissait d'une échelle. */}
+              <div className="grid grid-cols-5 gap-1.5">
                 {[
-                  { value: 'full', label: 'PLEIN' },
-                  { value: 'half', label: '1/2' },
-                  { value: 'quarter', label: '1/4' },
-                  { value: 'eighth', label: '1/8' },
-                  { value: 'empty', label: 'VIDE' }
-                ].map((level) => (
-                  <button
-                    key={level.value}
-                    onClick={() => setFuelLevel(level.value as any)}
-                    className={`p-2 text-xs border rounded-lg font-bold transition-colors ${
-                      fuelLevel === level.value
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    {level.label}
-                  </button>
-                ))}
+                  { value: 'empty', label: 'VIDE', rank: 0 },
+                  { value: 'eighth', label: '1/8', rank: 1 },
+                  { value: 'quarter', label: '1/4', rank: 2 },
+                  { value: 'half', label: '1/2', rank: 3 },
+                  { value: 'full', label: 'PLEIN', rank: 4 },
+                ].map((level) => {
+                  const current = ['empty', 'eighth', 'quarter', 'half', 'full'].indexOf(fuelLevel);
+                  const filled = level.rank <= current;
+                  const exact = fuelLevel === level.value;
+                  return (
+                    <button
+                      key={level.value}
+                      type="button"
+                      onClick={() => setFuelLevel(level.value as any)}
+                      className="py-2.5 px-1 text-[10px] rounded-lg font-black transition-all"
+                      style={
+                        exact
+                          ? {
+                              backgroundImage: 'var(--fx-grad-red)',
+                              color: '#fff',
+                              border: '1px solid var(--fx-line-red-hi)',
+                              boxShadow: '0 0 16px -4px rgba(200,16,46,0.85)',
+                            }
+                          : filled
+                          ? {
+                              backgroundImage: 'var(--fx-grad-red-tint)',
+                              color: 'var(--fx-red-200)',
+                              border: '1px solid var(--fx-line-red)',
+                            }
+                          : {
+                              backgroundImage: 'var(--fx-grad-well)',
+                              color: 'var(--fx-ink-dim)',
+                              border: '1px solid var(--fx-line)',
+                            }
+                      }
+                    >
+                      {level.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

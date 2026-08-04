@@ -424,7 +424,7 @@ export const CarReportModal: React.FC<CarReportModalProps> = ({
 
                   {/* Reservations total footer */}
                   {filteredRes.length > 0 && (
-                    <div className="bg-emerald-50 border-t border-emerald-200 px-5 py-3 grid grid-cols-3 gap-3 text-xs">
+                    <div className="bg-emerald-50 border-t border-emerald-200 px-5 py-3 grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                       <div>
                         <p className="text-gray-500">{T('Total Facturé','الإجمالي المفاتر')}</p>
                         <p className="font-black text-gray-800">{fmt(filteredRes.filter(r=>r.status!=='cancelled').reduce((s,r)=>s+(r.totalPrice||0),0))} DZD</p>

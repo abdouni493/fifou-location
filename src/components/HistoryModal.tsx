@@ -252,7 +252,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose, car
                           </div>
 
                           {/* Additional Info */}
-                          <div className="grid grid-cols-3 gap-4">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                             <div className="text-center">
                               <p className="text-[10px] font-bold text-saas-text-muted uppercase tracking-widest">Statut</p>
                               <span className={`inline-block px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wide mt-1 ${

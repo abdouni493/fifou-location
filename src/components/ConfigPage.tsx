@@ -6,6 +6,7 @@ import { DatabaseService } from '../services/DatabaseService';
 import { supabase } from '../supabase';
 import { sessionService } from '../utils/sessionService';
 import { uploadWebsiteImage } from '../services/uploadWebsiteImage';
+import { PageHeader, Segmented, LoadingState } from './ui/fx';
 
 interface ConfigPageProps {
   lang: Language;
@@ -657,60 +658,31 @@ export const ConfigPage: React.FC<ConfigPageProps> = ({ lang, user }) => {
   };
 
   return (
-    <div className="min-h-full p-4 sm:p-6">
+    <div className="min-h-full">
       <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+        <PageHeader
+          icon="🛠️"
+          eyebrow={{ fr: 'Système', ar: 'النظام' }[lang]}
+          title={{ fr: 'Configuration', ar: 'الإعدادات' }[lang]}
+          subtitle={
+            {
+              fr: "Identité de l'agence, compte administrateur et maintenance des données.",
+              ar: 'هوية الوكالة وحساب المدير وصيانة البيانات.',
+            }[lang]
+          }
         >
-          <h1 className="text-4xl font-black uppercase tracking-tighter text-saas-text-main mb-2 flex items-center gap-3">
-            🛠️ {{fr: 'Configuration', ar: 'الإعدادات'}[lang]}
-          </h1>
-          <p className="text-saas-text-muted text-sm font-bold uppercase tracking-widest">
-            {{fr: 'Gérez les paramètres de votre application', ar: 'إدارة إعدادات التطبيق'}[lang]}
-          </p>
-        </motion.div>
-
-        {/* Tab Navigation */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="mb-8 flex flex-col sm:flex-row gap-4"
-        >
-          <button
-            onClick={() => setActiveTab('general')}
-            className={`flex-1 py-3 px-6 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'general'
-                ? 'fx-modal-head-grad text-white shadow-lg'
-                : 'bg-white border-2 border-saas-border text-saas-text-main hover:border-saas-primary-via'
-            }`}
-          >
-            🏢 {{fr: 'Général', ar: 'عام'}[lang]}
-          </button>
-          <button
-            onClick={() => setActiveTab('profile')}
-            className={`flex-1 py-3 px-6 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'profile'
-                ? 'fx-modal-head-grad text-white shadow-lg'
-                : 'bg-white border-2 border-saas-border text-saas-text-main hover:border-saas-primary-via'
-            }`}
-          >
-            👤 {{fr: 'Profil & Sécurité', ar: 'الملف والأمان'}[lang]}
-          </button>
-          <button
-            onClick={() => setActiveTab('database')}
-            className={`flex-1 py-3 px-6 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'database'
-                ? 'fx-modal-head-grad text-white shadow-lg'
-                : 'bg-white border-2 border-saas-border text-saas-text-main hover:border-saas-primary-via'
-            }`}
-          >
-            💾 {{fr: 'Base de données', ar: 'قاعدة البيانات'}[lang]}
-          </button>
-        </motion.div>
+          {/* Onglets — un seul repère visuel actif, le rouge de la marque */}
+          <Segmented<'general' | 'profile' | 'database'>
+            value={activeTab}
+            onChange={setActiveTab}
+            options={[
+              { value: 'general', label: `🏢 ${{ fr: 'Général', ar: 'عام' }[lang]}` },
+              { value: 'profile', label: `👤 ${{ fr: 'Profil & sécurité', ar: 'الملف والأمان' }[lang]}` },
+              { value: 'database', label: `💾 ${{ fr: 'Base de données', ar: 'قاعدة البيانات' }[lang]}` },
+            ]}
+            className="w-full sm:w-auto"
+          />
+        </PageHeader>
 
         {/* Notification Display */}
         <AnimatePresence>
@@ -719,34 +691,33 @@ export const ConfigPage: React.FC<ConfigPageProps> = ({ lang, user }) => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className={`mb-6 border rounded-2xl p-4 flex items-center justify-between ${
+              className="mb-5 rounded-xl p-3.5 flex items-center gap-3"
+              style={
                 notification.type === 'success'
-                  ? 'bg-green-50 border-green-200'
-                  : 'bg-red-50 border-red-200'
-              }`}
+                  ? {
+                      backgroundImage: 'linear-gradient(135deg, rgba(16,164,111,0.16), rgba(10,115,80,0.04))',
+                      border: '1px solid rgba(52,211,153,0.4)',
+                      color: '#6EE7B7',
+                    }
+                  : {
+                      backgroundImage: 'linear-gradient(135deg, rgba(240,51,60,0.16), rgba(116,8,26,0.05))',
+                      border: '1px solid var(--fx-line-red-hi)',
+                      color: 'var(--fx-red-200)',
+                    }
+              }
             >
-              <div className="flex items-center gap-3">
-                <div className={notification.type === 'success' ? 'text-green-500' : 'text-red-500'}>
-                  {notification.type === 'success' ? '✅' : '❌'}
-                </div>
-                <p className={`font-medium ${notification.type === 'success' ? 'text-green-700' : 'text-red-700'}`}>
-                  {notification.message}
-                </p>
-              </div>
+              <span>{notification.type === 'success' ? '✅' : '❌'}</span>
+              <p className="font-medium text-sm">{notification.message}</p>
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* Loading State */}
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-saas-primary-via mx-auto mb-4"></div>
-              <p className="text-saas-text-muted font-bold">
-                {{fr: 'Chargement des paramètres...', ar: 'جاري تحميل الإعدادات...'}[lang]}
-              </p>
-            </div>
-          </div>
+          <LoadingState
+            label={{ fr: 'Chargement des paramètres…', ar: 'جاري تحميل الإعدادات…' }[lang]}
+            rows={3}
+          />
         ) : (
           <AnimatePresence mode="wait">
             {/* GENERAL TAB */}

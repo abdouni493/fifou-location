@@ -6,6 +6,7 @@ import { DatabaseService } from '../services/DatabaseService';
 import { uploadWebsiteImage } from '../services/uploadWebsiteImage';
 import { CarCard } from './CarCard';
 import { SiteLogo } from './website/SiteLogo';
+import { PageHeader, Segmented, LoadingState, ErrorBanner } from './ui/fx';
 
 interface WebsiteManagementPageProps {
   lang: Language;
@@ -627,42 +628,41 @@ export const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({ la
   };
 
   return (
-    <div className="min-h-full p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+    <div className="min-h-full">
+      <div className="max-w-[92rem] mx-auto">
+        <PageHeader
+          icon="🌐"
+          eyebrow={{ fr: 'Vitrine', ar: 'الواجهة' }[lang]}
+          title={{ fr: 'Gestion du site web', ar: 'إدارة الموقع الإلكتروني' }[lang]}
+          subtitle={
+            {
+              fr: 'Offres visibles, promotions, codes promo, contacts et identité visuelle du site public.',
+              ar: 'العروض والترويجات ورموز الخصم وجهات الاتصال وهوية الموقع.',
+            }[lang]
+          }
         >
-          <h1 className="text-4xl font-black uppercase tracking-tighter text-saas-text-main mb-2 flex items-center gap-3">
-            🌐 {{fr: 'Gestion du Site Web', ar: 'إدارة الموقع الإلكتروني'}[lang]}
-          </h1>
-          <p className="text-saas-text-muted text-sm font-bold uppercase tracking-widest">
-            {{fr: 'Gérez les offres, les contacts et les paramètres de votre site', ar: 'إدارة العروض والجهات الاتصال وإعدادات موقعك'}[lang]}
-          </p>
-        </motion.div>
+          {!loading && (
+            <Segmented<'offers' | 'special' | 'promo' | 'contacts' | 'settings'>
+              value={activeTab}
+              onChange={setActiveTab}
+              options={[
+                { value: 'offers', label: { fr: '🎁 Offres', ar: '🎁 العروض' }[lang] },
+                { value: 'special', label: { fr: '⭐ Spéciales', ar: '⭐ خاصة' }[lang] },
+                { value: 'promo', label: { fr: '🎟️ Codes promo', ar: '🎟️ رموز الخصم' }[lang] },
+                { value: 'contacts', label: { fr: '📞 Contacts', ar: '📞 جهات الاتصال' }[lang] },
+                { value: 'settings', label: { fr: '⚙️ Paramètres', ar: '⚙️ الإعدادات' }[lang] },
+              ]}
+              className="w-full sm:w-auto"
+            />
+          )}
+        </PageHeader>
 
-        {/* Error Display */}
         {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <div className="text-red-500">⚠️</div>
-              <p className="text-red-700 font-medium">{error}</p>
-            </div>
-            {error.includes('Session expirée') && (
-              <button
-                onClick={() => window.location.reload()}
-                className="btn-saas-primary text-sm px-4 py-2"
-              >
-                {lang === 'fr' ? 'Se reconnecter' : 'إعادة الاتصال'}
-              </button>
-            )}
-          </motion.div>
+          <ErrorBanner
+            message={error}
+            onRetry={() => window.location.reload()}
+            retryLabel={lang === 'fr' ? 'Se reconnecter' : 'إعادة الاتصال'}
+          />
         )}
 
         {/* Notification Display */}
@@ -672,63 +672,31 @@ export const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({ la
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className={`mb-6 border rounded-2xl p-4 flex items-center justify-between ${
+              className="mb-5 rounded-xl p-3.5 flex items-center gap-3"
+              style={
                 notification.type === 'success'
-                  ? 'bg-green-50 border-green-200'
-                  : 'bg-red-50 border-red-200'
-              }`}
+                  ? {
+                      backgroundImage: 'linear-gradient(135deg, rgba(16,164,111,0.16), rgba(10,115,80,0.04))',
+                      border: '1px solid rgba(52,211,153,0.4)',
+                      color: '#6EE7B7',
+                    }
+                  : {
+                      backgroundImage: 'linear-gradient(135deg, rgba(240,51,60,0.16), rgba(116,8,26,0.05))',
+                      border: '1px solid var(--fx-line-red-hi)',
+                      color: 'var(--fx-red-200)',
+                    }
+              }
             >
-              <div className="flex items-center gap-3">
-                <div className={notification.type === 'success' ? 'text-green-500' : 'text-red-500'}>
-                  {notification.type === 'success' ? '✅' : '❌'}
-                </div>
-                <p className={`font-medium ${notification.type === 'success' ? 'text-green-700' : 'text-red-700'}`}>
-                  {notification.message}
-                </p>
-              </div>
+              <span>{notification.type === 'success' ? '✅' : '❌'}</span>
+              <p className="font-medium text-sm">{notification.message}</p>
             </motion.div>
           )}
         </AnimatePresence>
 
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-saas-primary-via mx-auto mb-4"></div>
-              <p className="text-saas-text-muted font-bold">
-                {{fr: 'Chargement des données...', ar: 'جاري تحميل البيانات...'}[lang]}
-              </p>
-            </div>
-          </div>
+          <LoadingState label={{ fr: 'Chargement des données…', ar: 'جاري تحميل البيانات…' }[lang]} rows={6} />
         ) : (
           <>
-            {/* Tab Navigation */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="mb-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"
-            >
-              {([
-                { id: 'offers',   label: { fr: '🎁 Offres', ar: '🎁 العروض' } },
-                { id: 'special',  label: { fr: '⭐ Spéciales', ar: '⭐ خاصة' } },
-                { id: 'promo',    label: { fr: '🎟️ Codes Promo', ar: '🎟️ رموز الخصم' } },
-                { id: 'contacts', label: { fr: '📞 Contacts', ar: '📞 جهات الاتصال' } },
-                { id: 'settings', label: { fr: '⚙️ Paramètres', ar: '⚙️ الإعدادات' } },
-              ] as const).map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`py-3 px-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm sm:text-base ${
-                    activeTab === tab.id
-                      ? 'fx-modal-head-grad text-white shadow-lg'
-                      : 'bg-white border-2 border-saas-border text-saas-text-main hover:border-saas-primary-via'
-                  }`}
-                >
-                  {tab.label[lang]}
-                </button>
-              ))}
-            </motion.div>
-
             <AnimatePresence mode="wait">
           {/* OFFERS TAB — les voitures existantes s'affichent automatiquement */}
           {activeTab === 'offers' && (

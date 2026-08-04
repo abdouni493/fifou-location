@@ -243,7 +243,7 @@ export const CarCard: React.FC<CarCardProps> = ({
 
         {/* Actions */}
         {hasAdminActions && (
-          <div className="mt-auto grid grid-cols-3 gap-1.5 pt-1">
+          <div className="mt-auto grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-1">
             {onViewDetails && (
               <ActionBtn icon={<Eye size={13} />} label={fr ? 'Détails' : 'تفاصيل'} showLabel
                          className="flex-col !gap-0.5 py-2" onClick={() => onViewDetails(car)} />

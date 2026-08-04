@@ -764,6 +764,30 @@ html:not([data-surface="site"]) option { background-color: #17171E; color: var(-
   flex-wrap: wrap;
 }
 
+/* Entrée d'un menu déroulant (documents à imprimer, actions secondaires) */
+.fx-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-align: left;
+  color: var(--fx-ink-soft);
+  border-bottom: 1px solid var(--fx-line);
+  transition: all var(--fx-t-fast) var(--fx-ease);
+  cursor: pointer;
+}
+[dir="rtl"] .fx-menu-item { text-align: right; }
+.fx-menu-item:last-child { border-bottom: 0; }
+.fx-menu-item:hover {
+  background-image: var(--fx-grad-red-veil);
+  color: var(--fx-red-200);
+  padding-left: 1.15rem;
+}
+[dir="rtl"] .fx-menu-item:hover { padding-left: 1rem; padding-right: 1.15rem; }
+
 /* Barre de progression / jauge */
 .fx-meter {
   height: 8px;

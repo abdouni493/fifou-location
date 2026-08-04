@@ -133,7 +133,7 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({ isOpen, 
                 className="p-6 space-y-5"
               >
                 {/* Stat cards */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {/* Total reservations */}
                   <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center">
                     <div className="p-2 bg-blue-100 rounded-lg w-fit mx-auto mb-2">

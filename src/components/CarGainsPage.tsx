@@ -16,6 +16,11 @@ import {
 import { PctChip, SplitBar, SplitLegend, CalcRow, StatCard } from './gains/GainsUI';
 import { generateReportHTML } from './ReportPrintTemplate';
 import { eurOrUndefined } from '../utils/currency';
+import { CarPicker } from './ui/CarPicker';
+import {
+  PageHeader, Btn, EmptyState, Panel, Badge, TableWrap, Th, Td,
+  Donut, RankBars, Gauge as FxGauge, SERIES,
+} from './ui/fx';
 
 interface CarGainsPageProps {
   lang: Language;
@@ -23,6 +28,15 @@ interface CarGainsPageProps {
 
 const T = (fr: string, ar: string, lang: Language) => (lang === 'fr' ? fr : ar);
 const fmt = (n: number) => Math.round(n || 0).toLocaleString('fr-DZ');
+
+/** Libellés des postes de dépense, pour le classement visuel. */
+const EXPENSE_FR: Record<string, string> = {
+  vidange: '🛢️ Vidange',
+  assurance: '🛡️ Assurance',
+  controle: '📋 Contrôle technique',
+  chaine: '⛓️ Chaîne',
+  autre: '🔩 Autres',
+};
 const fmtD = (d: string) => {
   try {
     return new Date(d).toLocaleDateString('fr-FR');
@@ -278,139 +292,78 @@ export const CarGainsPage: React.FC<CarGainsPageProps> = ({ lang }) => {
     'w-full rounded-xl border border-white/15 bg-white/10 px-3.5 py-2.5 text-sm font-medium text-white outline-none backdrop-blur-sm transition focus:border-white/40 focus:bg-white/15 focus:ring-2 focus:ring-white/20';
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="max-w-[92rem] mx-auto pb-8">
       {/* ── En-tête + filtres ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-3xl bg-slate-900 text-white shadow-xl ring-1 ring-slate-900/10"
+      <PageHeader
+        icon="💰"
+        eyebrow={T('Rentabilité', 'الربحية', lang)}
+        title={T('Gains par véhicule', 'الأرباح حسب المركبة', lang)}
+        subtitle={T(
+          'Revenus, commissions, créances et dépenses — avec le détail de chaque calcul.',
+          'الإيرادات والعمولات والديون والمصاريف — مع تفصيل كل عملية حسابية.',
+          lang,
+        )}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-700 via-slate-900 to-slate-900" />
-        <div
-          className="absolute inset-0 opacity-[0.06]"
-          style={{
-            backgroundImage:
-              'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
-            backgroundSize: '28px 28px',
-          }}
-        />
-        <div className="relative p-6 sm:p-8">
-          <div className="mb-6 flex items-center gap-3.5">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/20">
-              <PieChart size={22} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-                {T('Gains par véhicule', 'الأرباح حسب المركبة', lang)}
-              </h1>
-              <p className="mt-0.5 text-sm text-slate-300">
-                {T(
-                  'Revenus, commissions et dépenses — avec le détail de chaque calcul',
-                  'الإيرادات والعمولات والمصاريف — مع تفصيل كل عملية حسابية',
-                  lang,
-                )}
-              </p>
-            </div>
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="lg:col-span-1">
+            <label className="fx-label">{T('Véhicule', 'المركبة', lang)}</label>
+            {/* Recherche plutôt qu'une liste déroulante : au-delà de quinze
+                voitures, retrouver la bonne à l'œil devient un exercice. */}
+            <CarPicker
+              cars={cars}
+              value={selectedCarId}
+              lang={lang}
+              placeholder={T('Choisir un véhicule…', 'اختر مركبة…', lang)}
+              onChange={carId => { setSelectedCarId(carId); setGenerated(false); }}
+            />
           </div>
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <div className="lg:col-span-1">
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-                {T('Véhicule', 'المركبة', lang)}
-              </label>
-              <select
-                value={selectedCarId}
-                onChange={e => {
-                  setSelectedCarId(e.target.value);
-                  setGenerated(false);
-                }}
-                className={fieldCls}
-              >
-                <option value="" className="bg-slate-800">
-                  {T('-- Choisir une voiture --', '-- اختر سيارة --', lang)}
-                </option>
-                {cars.map(car => (
-                  <option key={car.id} value={car.id} className="bg-slate-800">
-                    {car.ownershipType === 'consignment' ? '🤝 ' : ''}
-                    {car.brand} {car.model} ({car.registration})
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <label className="fx-label">{T('Date de début', 'تاريخ البداية', lang)}</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={e => { setStartDate(e.target.value); setGenerated(false); }}
+              className="fx-field"
+            />
+          </div>
 
-            <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-                {T('Date de début', 'تاريخ البداية', lang)}
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={e => { setStartDate(e.target.value); setGenerated(false); }}
-                className={fieldCls}
-              />
-            </div>
+          <div>
+            <label className="fx-label">{T('Date de fin', 'تاريخ النهاية', lang)}</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={e => { setEndDate(e.target.value); setGenerated(false); }}
+              className="fx-field"
+            />
+          </div>
 
-            <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-                {T('Date de fin', 'تاريخ النهاية', lang)}
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={e => { setEndDate(e.target.value); setGenerated(false); }}
-                className={fieldCls}
-              />
-            </div>
-
-            <div className="flex items-end">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleGenerate}
-                disabled={loading || !selectedCarId}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-slate-900 shadow-lg transition hover:bg-slate-100 disabled:opacity-50"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    {T('Génération…', 'جاري…', lang)}
-                  </>
-                ) : (
-                  <>
-                    <TrendingUp size={16} />
-                    {T('Analyser', 'تحليل', lang)}
-                  </>
-                )}
-              </motion.button>
-            </div>
+          <div className="flex items-end">
+            <Btn
+              tone="primary"
+              className="w-full"
+              onClick={handleGenerate}
+              disabled={loading || !selectedCarId}
+            >
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <TrendingUp size={16} />}
+              {loading ? T('Génération…', 'جاري…', lang) : T('Analyser', 'تحليل', lang)}
+            </Btn>
           </div>
         </div>
-      </motion.div>
+      </PageHeader>
 
       <AnimatePresence mode="wait">
         {!generated && !loading && (
-          <motion.div
-            key="empty"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="flex items-center justify-center py-24"
-          >
-            <div className="max-w-md text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-300">
-                <PieChart size={30} />
-              </div>
-              <p className="mb-1.5 text-base font-bold text-slate-700">
-                {T('Prêt à analyser vos gains ?', 'هل أنت مستعد لتحليل أرباحك؟', lang)}
-              </p>
-              <p className="text-sm text-slate-400">
-                {T(
-                  'Choisissez un véhicule et une période, puis lancez l’analyse pour voir le détail des calculs.',
-                  'اختر مركبة وفترة، ثم ابدأ التحليل لعرض تفاصيل الحسابات.',
-                  lang,
-                )}
-              </p>
-            </div>
+          <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <EmptyState
+              icon="📊"
+              title={T('Prêt à analyser vos gains ?', 'هل أنت مستعد لتحليل أرباحك؟', lang)}
+              description={T(
+                'Choisissez un véhicule et une période, puis lancez l’analyse pour voir le détail des calculs : chaque location, chaque paiement, chaque dépense.',
+                'اختر مركبة وفترة، ثم ابدأ التحليل لعرض تفاصيل الحسابات.',
+                lang,
+              )}
+            />
           </motion.div>
         )}
 
@@ -512,6 +465,122 @@ export const CarGainsPage: React.FC<CarGainsPageProps> = ({ lang }) => {
                 <StatCard key={k.label} index={i} {...k} />
               ))}
             </div>
+
+            {/* ── Lecture visuelle : où part l'argent, et quelle est la marge ── */}
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+              <Panel title={T('Répartition du chiffre', 'توزيع رقم الأعمال', lang)} icon="🥧">
+                {g.invoiced > 0 ? (
+                  <Donut
+                    size={160}
+                    centerLabel={T('Facturé', 'المفوتر', lang)}
+                    centerValue={`${fmt(g.invoiced)} DA`}
+                    data={[
+                      { label: T('Revenu agence', 'إيراد الوكالة', lang), value: Math.max(0, g.agencyRevenue), color: SERIES[0] },
+                      { label: T('Part propriétaire', 'حصة المالك', lang), value: Math.max(0, g.ownerPayout), color: SERIES[3] },
+                      { label: T('Dépenses véhicule', 'مصاريف المركبة', lang), value: Math.max(0, g.expenses), color: SERIES[2] },
+                      { label: T('Reste à encaisser', 'المتبقي', lang), value: Math.max(0, g.outstanding), color: SERIES[6] },
+                    ].filter(d => d.value > 0)}
+                  />
+                ) : (
+                  <p className="py-6 text-center text-sm" style={{ color: 'var(--fx-ink-dim)' }}>
+                    {T('Aucune location sur la période.', 'لا إيجارات في هذه الفترة.', lang)}
+                  </p>
+                )}
+              </Panel>
+
+              <Panel title={T('Indicateurs de santé', 'مؤشرات الأداء', lang)} icon="📈">
+                <div className="flex flex-wrap items-start justify-around gap-4 py-2">
+                  <FxGauge
+                    value={g.collectionRate}
+                    label={T('Taux de recouvrement', 'نسبة التحصيل', lang)}
+                    tone={g.collectionRate >= 90 ? '#10A46F' : g.collectionRate >= 60 ? '#D98410' : '#E01331'}
+                  />
+                  <FxGauge
+                    value={g.margin}
+                    label={T('Marge nette', 'هامش الربح', lang)}
+                    tone={g.margin >= 30 ? '#10A46F' : g.margin >= 0 ? '#D98410' : '#E01331'}
+                  />
+                  <FxGauge
+                    value={Math.min(100, g.expenseRatio)}
+                    label={T('Poids des dépenses', 'وزن المصاريف', lang)}
+                    tone={g.expenseRatio <= 30 ? '#10A46F' : g.expenseRatio <= 60 ? '#D98410' : '#E01331'}
+                  />
+                </div>
+              </Panel>
+
+              <Panel title={T('Dépenses par poste', 'المصاريف حسب البند', lang)} icon="🔧">
+                {expenses.length > 0 ? (
+                  <RankBars
+                    format={n => `${fmt(n)} DA`}
+                    data={Object.entries(
+                      expenses.reduce<Record<string, number>>((acc, e) => {
+                        acc[e.type] = (acc[e.type] ?? 0) + Number(e.cost || 0);
+                        return acc;
+                      }, {}),
+                    )
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([type, value], i) => ({
+                        label: EXPENSE_FR[type] ?? type,
+                        value,
+                        color: SERIES[i % SERIES.length],
+                      }))}
+                  />
+                ) : (
+                  <p className="py-6 text-center text-sm" style={{ color: 'var(--fx-ink-dim)' }}>
+                    {T('Aucune dépense sur la période.', 'لا مصاريف في هذه الفترة.', lang)}
+                  </p>
+                )}
+              </Panel>
+            </div>
+
+            {/* ── Créances : ce qui reste dû, location par location ── */}
+            {(() => {
+              const debts = reservations
+                .filter(r => r.status !== 'cancelled')
+                .map(r => ({ r, paid: calcPaid(r), due: Number(r.totalPrice || 0) - calcPaid(r) }))
+                .filter(d => d.due > 0.5)
+                .sort((a, b) => b.due - a.due);
+
+              if (debts.length === 0) return null;
+
+              return (
+                <Panel
+                  title={T('Créances sur ce véhicule', 'ديون هذه المركبة', lang)}
+                  icon="⏳"
+                  actions={<Badge tone="red">{fmt(debts.reduce((s, d) => s + d.due, 0))} DA</Badge>}
+                  bodyClassName="p-0"
+                >
+                  <TableWrap>
+                    <thead className="fx-table-head">
+                      <tr>
+                        <Th>{T('Client', 'العميل', lang)}</Th>
+                        <Th>{T('Période', 'الفترة', lang)}</Th>
+                        <Th>{T('Statut', 'الحالة', lang)}</Th>
+                        <Th align="right">{T('Total', 'المجموع', lang)}</Th>
+                        <Th align="right">{T('Payé', 'مدفوع', lang)}</Th>
+                        <Th align="right">{T('Reste dû', 'المتبقي', lang)}</Th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {debts.map(({ r, paid, due }) => (
+                        <tr key={r.id} className="fx-table-row">
+                          <Td>{r.client ? `${r.client.firstName} ${r.client.lastName}` : '—'}</Td>
+                          <Td>
+                            {(r.step1?.departureDate || '').slice(0, 10)} → {(r.step1?.returnDate || '').slice(0, 10)}
+                          </Td>
+                          <Td><Badge tone={r.status === 'completed' ? 'steel' : 'amber'}>{r.status}</Badge></Td>
+                          <Td align="right" className="tabular-nums">{fmt(Number(r.totalPrice || 0))} DA</Td>
+                          <Td align="right" className="tabular-nums">{fmt(paid)} DA</Td>
+                          <Td align="right" className="tabular-nums font-black">
+                            <span style={{ color: 'var(--fx-red-200)' }}>{fmt(due)} DA</span>
+                          </Td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </TableWrap>
+                </Panel>
+              );
+            })()}
 
             {/* ── 🤝 Détail du calcul — conciergerie ── */}
             {consignment && owner && (

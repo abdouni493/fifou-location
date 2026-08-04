@@ -238,7 +238,7 @@ export const ReservationAlertCard: React.FC<ReservationAlertCardProps> = ({
         </div>
 
         {/* Reservation Timeline */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           <div className="p-3 bg-white/40 rounded-lg border border-white/60 text-center">
             <p className="text-xs text-gray-600 font-bold uppercase">Départ</p>
             <p className="text-sm font-black text-blue-700 mt-1">

@@ -1271,11 +1271,29 @@ export const ActivationModal: React.FC<{ lang: Language; reservation: Reservatio
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-6 max-h-[95vh] overflow-y-auto"
+        className="fx-modal sm:max-w-4xl p-5 sm:p-6 overflow-y-auto custom-scrollbar"
       >
-        <h3 className="text-2xl font-black text-saas-text-main mb-6">
-          ✅ {lang === 'fr' ? 'Activer la Location' : 'تفعيل التأجير'}
-        </h3>
+        {/* Bandeau vert : activer, c'est faire SORTIR le véhicule. L'action est
+            engageante, on la signale autrement que par le rouge de la marque. */}
+        <div
+          className="mb-5 rounded-xl px-4 py-3.5 flex items-center gap-3"
+          style={{
+            backgroundImage: 'linear-gradient(135deg, rgba(16,164,111,0.18), rgba(10,115,80,0.05))',
+            border: '1px solid rgba(52,211,153,0.4)',
+          }}
+        >
+          <span className="text-2xl">✅</span>
+          <div className="min-w-0">
+            <h3 className="fx-title text-lg leading-tight" style={{ color: '#6EE7B7' }}>
+              {lang === 'fr' ? 'Activer la location' : 'تفعيل التأجير'}
+            </h3>
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--fx-ink-mute)' }}>
+              {lang === 'fr'
+                ? 'Inspection de départ : relevez le kilométrage, le carburant et l’état du véhicule avant remise des clés.'
+                : 'فحص المغادرة: سجّل العداد والوقود وحالة المركبة قبل تسليم المفاتيح.'}
+            </p>
+          </div>
+        </div>
 
         <div className="space-y-8">
           {/* CAR INFORMATION SECTION */}
@@ -1774,11 +1792,29 @@ export const CompletionModal: React.FC<{ lang: Language; reservation: Reservatio
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full p-6 max-h-[90vh] overflow-y-auto"
+        className="fx-modal sm:max-w-5xl p-5 sm:p-6 overflow-y-auto custom-scrollbar"
       >
-        <h3 className="text-2xl font-black text-saas-text-main mb-6">
-          🏁 {lang === 'fr' ? 'Terminer la Location' : 'إنهاء التأجير'}
-        </h3>
+        {/* Bandeau rouge : clôturer, c'est arrêter la facturation et figer les
+            comptes de la location. C'est l'action la plus définitive de l'écran. */}
+        <div
+          className="mb-5 rounded-xl px-4 py-3.5 flex items-center gap-3"
+          style={{
+            backgroundImage: 'var(--fx-grad-red-tint)',
+            border: '1px solid var(--fx-line-red)',
+          }}
+        >
+          <span className="text-2xl">🏁</span>
+          <div className="min-w-0">
+            <h3 className="fx-title text-lg leading-tight" style={{ color: 'var(--fx-red-200)' }}>
+              {lang === 'fr' ? 'Clôturer la location' : 'إنهاء التأجير'}
+            </h3>
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--fx-ink-mute)' }}>
+              {lang === 'fr'
+                ? 'Inspection de retour : kilométrage, carburant et dommages éventuels. La facturation s’arrête ici.'
+                : 'فحص العودة: العداد والوقود والأضرار. تتوقف الفوترة هنا.'}
+            </p>
+          </div>
+        </div>
 
         <div className="space-y-6">
           {/* Car Information */}

@@ -128,7 +128,7 @@ export const CarDetailsModal: React.FC<CarDetailsModalProps> = ({ lang, car, onC
               style={{ color: 'var(--color-vel-cta-bright)', fontFamily: 'var(--font-display)' }}>
               {{ fr: 'Tarifs', ar: 'الأسعار' }[lang]}
             </h3>
-            <div className="grid grid-cols-3 gap-3 mb-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
               <div className="vel-glass-accent rounded-xl p-4 text-center">
                 <p className="font-black text-2xl" style={{ color: 'var(--color-vel-cta-bright)', fontFamily: 'var(--font-display)' }}>
                   {car.priceDay.toLocaleString()}

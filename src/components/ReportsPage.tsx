@@ -22,6 +22,19 @@ import {
 } from '../utils/gainsMath';
 import { PctChip, SplitBar, SplitLegend, CalcRow, StatCard, Tone } from './gains/GainsUI';
 import { generateReportHTML } from './ReportPrintTemplate';
+import {
+  PageHeader, Btn, Panel, EmptyState, LoadingState, ErrorBanner,
+  Donut, RankBars, BarChart as FxBarChart, Gauge as FxGauge, SERIES,
+} from './ui/fx';
+
+/** Libellés des postes de dépense pour les classements visuels. */
+const EXPENSE_LABELS: Record<string, string> = {
+  vidange: '🛢️ Vidange',
+  assurance: '🛡️ Assurance',
+  controle: '📋 Contrôle technique',
+  chaine: '⛓️ Chaîne',
+  autre: '🔩 Autres',
+};
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const T = (fr: string, ar: string, lang: Language) => (lang === 'fr' ? fr : ar);
@@ -589,7 +602,7 @@ const CarBlock: React.FC<{
                 )}
 
                 {reservations.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2 border-t border-slate-100 bg-slate-50 px-4 py-2.5 text-[10px]">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border-t border-slate-100 bg-slate-50 px-4 py-2.5 text-[10px]">
                     <div>
                       <p className="text-slate-400">{T('Facturé', 'المفوتر', lang)}</p>
                       <p className="font-extrabold tabular-nums text-slate-700">{fmt(g.invoiced)} DZD</p>
@@ -872,106 +885,63 @@ const ReportsPage: React.FC<{ lang: Language }> = ({ lang }) => {
     'w-full rounded-xl border border-white/15 bg-white/10 px-3.5 py-2.5 text-sm font-medium text-white outline-none backdrop-blur-sm transition focus:border-white/40 focus:bg-white/15 focus:ring-2 focus:ring-white/20';
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="max-w-[92rem] mx-auto pb-8">
       {/* ── En-tête ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-3xl bg-slate-900 text-white shadow-xl ring-1 ring-slate-900/10"
+      <PageHeader
+        icon="📄"
+        eyebrow={T('Analyse', 'التحليل', lang)}
+        title={T('Rapports complets', 'التقارير الشاملة', lang)}
+        subtitle={T(
+          'Locations, clients, flotte, commissions, dépenses et bénéfice — avec le détail de chaque calcul.',
+          'الإيجارات والعملاء والأسطول والعمولات والمصاريف والأرباح.',
+          lang,
+        )}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-800 via-slate-900 to-slate-900" />
-        <div
-          className="absolute inset-0 opacity-[0.06]"
-          style={{
-            backgroundImage:
-              'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
-            backgroundSize: '28px 28px',
-          }}
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+          <div>
+            <label className="fx-label">{T('Date de début', 'تاريخ البداية', lang)}</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={e => { setStartDate(e.target.value); setData(null); }}
+              className="fx-field"
+            />
+          </div>
+          <div>
+            <label className="fx-label">{T('Date de fin', 'تاريخ النهاية', lang)}</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={e => { setEndDate(e.target.value); setData(null); }}
+              className="fx-field"
+            />
+          </div>
+          <div className="flex items-end">
+            <Btn tone="primary" className="w-full" onClick={generate} disabled={isGenerating}>
+              {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <BarChart3 size={16} />}
+              {isGenerating
+                ? T('Chargement…', 'جاري التحميل…', lang)
+                : T('Générer le rapport', 'توليد التقرير', lang)}
+            </Btn>
+          </div>
+        </div>
+      </PageHeader>
+
+      {isGenerating && <LoadingState label={T('Chargement des données…', 'جاري تحميل البيانات…', lang)} rows={6} />}
+
+      {!isGenerating && !data && !error && (
+        <EmptyState
+          icon="📄"
+          title={T('Choisissez une période', 'اختر فترة', lang)}
+          description={T(
+            'Sélectionnez une date de début et une date de fin, puis générez le rapport : chiffre d’affaires, flotte, clients, dépenses et bénéfice y sont détaillés poste par poste.',
+            'اختر تاريخ البداية والنهاية ثم ولّد التقرير.',
+            lang,
+          )}
         />
-        <div className="relative p-6 sm:p-8">
-          <div className="mb-6 flex items-center gap-3.5">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/20">
-              <BarChart3 size={22} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-                {T('Rapports complets', 'التقارير الشاملة', lang)}
-              </h1>
-              <p className="mt-0.5 text-sm text-slate-300">
-                {T(
-                  'Locations, commissions, dépenses et bénéfice — avec le détail de chaque calcul',
-                  'الإيجارات والعمولات والمصاريف والأرباح — مع تفصيل كل عملية حسابية',
-                  lang,
-                )}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-                {T('Date de début', 'تاريخ البداية', lang)}
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={e => { setStartDate(e.target.value); setData(null); }}
-                className={fieldCls}
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-                {T('Date de fin', 'تاريخ النهاية', lang)}
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={e => { setEndDate(e.target.value); setData(null); }}
-                className={fieldCls}
-              />
-            </div>
-            <div className="flex items-end">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={generate}
-                disabled={isGenerating}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-6 py-2.5 text-sm font-bold text-slate-900 shadow-lg transition hover:bg-slate-100 disabled:opacity-60"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    {T('Chargement…', 'جاري التحميل…', lang)}
-                  </>
-                ) : (
-                  <>
-                    <BarChart3 size={16} />
-                    {T('Générer le rapport', 'توليد التقرير', lang)}
-                  </>
-                )}
-              </motion.button>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
-      {isGenerating && (
-        <div className="flex items-center justify-center py-16">
-          <div className="text-center">
-            <Loader2 className="mx-auto mb-2 h-9 w-9 animate-spin text-blue-600" />
-            <p className="text-sm font-semibold text-slate-500">
-              {T('Chargement des données…', 'جاري تحميل البيانات…', lang)}
-            </p>
-          </div>
-        </div>
       )}
 
-      {error && (
-        <div className="flex items-center gap-3 rounded-2xl bg-rose-50 p-4 ring-1 ring-rose-200">
-          <AlertTriangle className="h-5 w-5 shrink-0 text-rose-500" />
-          <p className="text-sm font-semibold text-rose-700">{error}</p>
-        </div>
-      )}
+      {error && <ErrorBanner message={error} onRetry={generate} retryLabel={T('Réessayer', 'إعادة', lang)} />}
 
       <AnimatePresence>
         {data && !isGenerating && (
@@ -1059,6 +1029,123 @@ const ReportsPage: React.FC<{ lang: Language }> = ({ lang }) => {
                   />
                 </>
               )}
+            </div>
+
+            {/* ══ TABLEAU DE BORD VISUEL ══
+                Les chiffres bruts ci-dessus disent « combien ». Ces quatre vues
+                disent « d'où » et « comment ça évolue » — c'est ce qu'on ne peut
+                pas lire dans une colonne de nombres. */}
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <Panel title={T('Où va le chiffre d’affaires', 'أين يذهب رقم الأعمال', lang)} icon="🥧">
+                {fleet.collected > 0 ? (
+                  <Donut
+                    size={170}
+                    centerLabel={T('Encaissé', 'المحصّل', lang)}
+                    centerValue={`${fmt(fleet.collected)} DA`}
+                    data={[
+                      { label: T('Bénéfice net agence', 'صافي الربح', lang), value: Math.max(0, netBenefitGlobal), color: SERIES[0] },
+                      { label: T('Dépenses', 'المصاريف', lang), value: Math.max(0, totalExpGlobal), color: SERIES[2] },
+                      { label: T('Reversé aux propriétaires', 'مستحقات الملاك', lang), value: Math.max(0, fleet.ownerPayout), color: SERIES[3] },
+                    ].filter(d => d.value > 0)}
+                  />
+                ) : (
+                  <p className="py-6 text-center text-sm" style={{ color: 'var(--fx-ink-dim)' }}>
+                    {T('Aucun encaissement sur la période.', 'لا مقبوضات في هذه الفترة.', lang)}
+                  </p>
+                )}
+              </Panel>
+
+              <Panel title={T('Santé de l’activité', 'صحة النشاط', lang)} icon="📊">
+                <div className="flex flex-wrap items-start justify-around gap-4 py-2">
+                  <FxGauge
+                    value={pct(fleet.collected, fleet.invoiced)}
+                    label={T('Recouvrement', 'التحصيل', lang)}
+                    tone={pct(fleet.collected, fleet.invoiced) >= 90 ? '#10A46F' : '#D98410'}
+                  />
+                  <FxGauge
+                    value={Math.max(0, marginGlobal)}
+                    label={T('Marge nette', 'هامش الربح', lang)}
+                    tone={marginGlobal >= 30 ? '#10A46F' : marginGlobal >= 0 ? '#D98410' : '#E01331'}
+                  />
+                  <FxGauge
+                    value={Math.min(100, pct(totalExpGlobal, agencyRevenueGlobal))}
+                    label={T('Poids des dépenses', 'وزن المصاريف', lang)}
+                    tone={pct(totalExpGlobal, agencyRevenueGlobal) <= 30 ? '#10A46F' : '#D98410'}
+                  />
+                  <FxGauge
+                    value={pct(
+                      data.cars.filter(c => c.status === 'louer' || c.status === 'reserve').length,
+                      Math.max(1, data.cars.length),
+                    )}
+                    label={T('Flotte en service', 'الأسطول العامل', lang)}
+                    tone="#E01331"
+                  />
+                </div>
+              </Panel>
+
+              <Panel title={T('Chiffre d’affaires par mois', 'رقم الأعمال شهريًا', lang)} icon="📈" className="xl:col-span-2">
+                <FxBarChart
+                  height={180}
+                  format={v => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v)))}
+                  data={(() => {
+                    // Six derniers mois de la période demandée, encaissements réels.
+                    const byMonth = new Map<string, number>();
+                    nonCancelledRes.forEach(r => {
+                      const key = (r.completedAt || r.createdAt || '').slice(0, 7);
+                      if (!key) return;
+                      byMonth.set(key, (byMonth.get(key) ?? 0) + calcPaid(r));
+                    });
+                    return [...byMonth.entries()]
+                      .sort((a, b) => a[0].localeCompare(b[0]))
+                      .slice(-12)
+                      .map(([key, value]) => {
+                        const [y, m] = key.split('-');
+                        return {
+                          label: new Date(Number(y), Number(m) - 1, 1)
+                            .toLocaleDateString('fr-FR', { month: 'short' }),
+                          value,
+                        };
+                      });
+                  })()}
+                />
+              </Panel>
+
+              <Panel title={T('Véhicules les plus rentables', 'المركبات الأكثر ربحية', lang)} icon="🏆">
+                <RankBars
+                  format={n => `${fmt(n)} DA`}
+                  data={rows
+                    .slice()
+                    .sort((a, b) => b.gains.netBenefit - a.gains.netBenefit)
+                    .slice(0, 8)
+                    .map(r => ({
+                      label: `${r.car.brand} ${r.car.model}`,
+                      sub: r.car.registration,
+                      value: Math.max(0, r.gains.netBenefit),
+                    }))}
+                />
+              </Panel>
+
+              <Panel title={T('Postes de dépense', 'بنود المصاريف', lang)} icon="📉">
+                <RankBars
+                  format={n => `${fmt(n)} DA`}
+                  data={(() => {
+                    const byType = new Map<string, number>();
+                    data.vehicleExpenses.forEach(e =>
+                      byType.set(e.type, (byType.get(e.type) ?? 0) + Number(e.cost || 0)),
+                    );
+                    const storeTotal = data.storeExpenses.reduce((s, e) => s + Number(e.cost || 0), 0);
+                    const list = [...byType.entries()].map(([t, v], i) => ({
+                      label: EXPENSE_LABELS[t] ?? t,
+                      value: v,
+                      color: SERIES[i % SERIES.length],
+                    }));
+                    if (storeTotal > 0) {
+                      list.push({ label: '🏪 Agence', value: storeTotal, color: SERIES[7] });
+                    }
+                    return list.sort((a, b) => b.value - a.value);
+                  })()}
+                />
+              </Panel>
             </div>
 
             {/* Bénéfice net + détail du calcul global */}
@@ -1630,7 +1717,7 @@ const ReportsPage: React.FC<{ lang: Language }> = ({ lang }) => {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-3 divide-x divide-slate-100 text-xs">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 divide-x divide-slate-100 text-xs">
                           {[
                             {
                               icon: <CreditCard size={10} />,

@@ -246,7 +246,7 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({ invoice, lang, onViewDetails,
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-3 gap-3 pt-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
