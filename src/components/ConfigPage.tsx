@@ -863,7 +863,7 @@ export const ConfigPage: React.FC<ConfigPageProps> = ({ lang, user }) => {
                         </span>
                       </label>
                       <p className="text-xs text-saas-text-muted mt-2">
-                        {{fr: 'Format recommandé: PNG ou JPG (500x500px)', ar: 'الصيغة الموصى بها: PNG أو JPG (500x500px)'}[lang]}
+                        {{fr: 'Format recommandé: PNG ou JPG (500x500px) · 10 Mo max', ar: 'الصيغة الموصى بها: PNG أو JPG (500x500px) · 10 ميغابايت كحد أقصى'}[lang]}
                       </p>
                     </div>
                   </div>

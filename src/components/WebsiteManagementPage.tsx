@@ -582,8 +582,11 @@ export const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({ la
       const uploaded = await uploadWebsiteImage(file, 'background');
       if (uploaded.success && uploaded.url) {
         bgValue = uploaded.url;
-      } else {
-        // Fallback: store as data URL (same pattern as logo upload)
+      } else if (file.size <= DATA_URL_FALLBACK_MAX) {
+        // Repli data URL, aux mêmes conditions que le logo : seulement pour les
+        // petits fichiers. Le fond accepte désormais 10 Mo — un tel fichier en
+        // base64 (~13 Mo) dans la ligne `website_settings`, relue à chaque
+        // affichage du site, plomberait le landing au lieu de l'habiller.
         console.warn('Background storage upload failed, falling back to data URL:', uploaded.error);
         bgValue = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
@@ -591,6 +594,16 @@ export const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({ la
           reader.onerror = () => reject(new Error('read error'));
           reader.readAsDataURL(file);
         });
+      } else {
+        notify(
+          'error',
+          (uploaded.error || (lang === 'fr' ? 'Téléversement refusé' : 'تم رفض التحميل')) +
+            (lang === 'fr'
+              ? ' — image trop lourde pour le repli local. Corrigez le bucket "website", ou réessayez avec une image de moins de 512 Ko.'
+              : ' — الصورة كبيرة جدًا للحفظ المحلي. أصلح مساحة التخزين "website" أو استخدم صورة أقل من 512 كيلوبايت.'),
+          9000,
+        );
+        return;
       }
       setSettings(prev => ({ ...prev, landing_background: bgValue! }));
       await DatabaseService.updateWebsiteSettings({ ...settings, landing_background: bgValue! });
@@ -1583,7 +1596,7 @@ export const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({ la
                         onDragLeave={() => setLogoDragOver(false)}
                         onDrop={handleLogoDrop('logo')}
                         onChange={handleLogoUpload('logo')}
-                        hint={{fr: 'Logo lisible sur fond blanc · 5 Mo max', ar: 'شعار واضح على خلفية بيضاء · 5 ميغابايت'}[lang]}
+                        hint={{fr: 'Logo lisible sur fond blanc · 10 Mo max', ar: 'شعار واضح على خلفية بيضاء · 10 ميغابايت'}[lang]}
                         lang={lang}
                       />
                       {settings.logo && (
@@ -1664,8 +1677,8 @@ export const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({ la
                     onDrop={handleLogoDrop('navbar_logo')}
                     onChange={handleLogoUpload('navbar_logo')}
                     hint={{
-                      fr: 'Version claire/chrome, fond transparent ou noir · format large (~3:2) · 5 Mo max',
-                      ar: 'نسخة فاتحة، خلفية شفافة أو سوداء · تنسيق عريض (~3:2) · 5 ميغابايت كحد أقصى',
+                      fr: 'Version claire/chrome, fond transparent ou noir · format large (~3:2) · 10 Mo max',
+                      ar: 'نسخة فاتحة، خلفية شفافة أو سوداء · تنسيق عريض (~3:2) · 10 ميغابايت كحد أقصى',
                     }[lang]}
                     lang={lang}
                   />
@@ -1744,7 +1757,7 @@ export const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({ la
                       </button>
                     )}
                     <p className="text-xs text-saas-text-muted">
-                      {{fr: 'Enregistrée dans le même bucket que le logo, affichée floutée derrière le hero.', ar: 'تُحفظ في نفس مساحة تخزين الشعار وتُعرض مموهة خلف الواجهة.'}[lang]}
+                      {{fr: 'Enregistrée dans le même bucket que le logo, affichée floutée derrière le hero · 10 Mo max.', ar: 'تُحفظ في نفس مساحة تخزين الشعار وتُعرض مموهة خلف الواجهة · 10 ميغابايت كحد أقصى.'}[lang]}
                     </p>
                   </div>
                 </div>
