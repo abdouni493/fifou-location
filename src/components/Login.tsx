@@ -7,6 +7,7 @@ import { Language, UserRole, User } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { DatabaseService } from '../services/DatabaseService';
 import { sessionService } from '../utils/sessionService';
+import { cacheWorkerPermissions } from '../utils/permissions';
 import { BrandMark } from './BrandMark';
 
 interface LoginProps {
@@ -251,10 +252,20 @@ export const Login: React.FC<LoginProps> = ({ lang, onLogin }) => {
             // Worker RPC login successful
             const worker = loginResult.worker;
             const workerRole = (worker.type as UserRole) || 'worker';
-            
+
             console.log('[Login] === WORKER LOGIN SUCCESSFUL ===');
             console.log('[Login] Worker authenticated:', { name: worker.full_name, email: worker.email, role: workerRole });
-            
+
+            // Sans session Supabase, la lecture de sa ligne `workers` serait
+            // refusée par RLS : on met ses droits de côté dès maintenant pour
+            // que sa barre latérale soit correcte malgré tout.
+            if (worker.email) {
+              cacheWorkerPermissions(
+                worker.email,
+                Array.isArray(worker.permissions) ? worker.permissions : [],
+              );
+            }
+
             // Save worker session to database
             const sessionResult = await sessionService.createSession(
               `worker_token_${Date.now()}`,
@@ -345,56 +356,42 @@ export const Login: React.FC<LoginProps> = ({ lang, onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-saas-bg via-saas-bg to-blue-50">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    <div className="min-h-dvh flex items-center justify-center p-4 sm:p-6 relative overflow-hidden fx-safe-b fx-safe-t">
+      {/* Décor : deux halos rouges qui dérivent lentement sur le carbone.
+          `pointer-events-none` + z-0 pour ne jamais gêner la saisie. */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0" aria-hidden>
+        <div className="absolute inset-0 vel-grid-bg opacity-40" />
         <motion.div
-          className="absolute top-0 left-0 w-96 h-96 bg-saas-primary-start rounded-full mix-blend-multiply filter blur-3xl opacity-10"
-          animate={{
-            x: [0, 100, 0],
-            y: [0, 50, 0],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "linear"
-          }}
+          className="absolute -top-40 -left-32 w-[28rem] h-[28rem] rounded-full blur-3xl"
+          style={{ background: 'radial-gradient(circle, rgba(200,16,46,0.42), transparent 68%)' }}
+          animate={{ x: [0, 90, 0], y: [0, 60, 0] }}
+          transition={{ duration: 26, repeat: Infinity, ease: 'linear' }}
         />
         <motion.div
-          className="absolute top-0 right-0 w-96 h-96 bg-saas-primary-via rounded-full mix-blend-multiply filter blur-3xl opacity-10"
-          animate={{
-            x: [0, -100, 0],
-            y: [0, -50, 0],
-          }}
-          transition={{
-            duration: 25,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-        />
-        <motion.div
-          className="absolute bottom-0 left-1/2 w-96 h-96 bg-saas-primary-end rounded-full mix-blend-multiply filter blur-3xl opacity-10"
-          animate={{
-            x: [0, 50, 0],
-            y: [0, 100, 0],
-          }}
-          transition={{
-            duration: 30,
-            repeat: Infinity,
-            ease: "linear"
-          }}
+          className="absolute -bottom-48 -right-24 w-[32rem] h-[32rem] rounded-full blur-3xl"
+          style={{ background: 'radial-gradient(circle, rgba(116,8,26,0.4), transparent 68%)' }}
+          animate={{ x: [0, -70, 0], y: [0, -50, 0] }}
+          transition={{ duration: 34, repeat: Infinity, ease: 'linear' }}
         />
       </div>
 
       {/* Main login card */}
-      <motion.div 
-        initial={{ opacity: 0, y: 30, scale: 0.95 }}
+      <motion.div
+        initial={{ opacity: 0, y: 24, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
+        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
         className="w-full max-w-md relative z-10"
       >
-        <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-10 space-y-10 border border-saas-border shadow-xl">
-          
+        <div
+          className="rounded-2xl p-6 sm:p-9 space-y-7 sm:space-y-8"
+          style={{
+            backgroundImage:
+              'radial-gradient(90% 120% at 100% 0%, rgba(200,16,46,0.16), transparent 60%), var(--fx-grad-surface)',
+            border: '1px solid var(--fx-line-strong)',
+            boxShadow: 'var(--fx-edge-red), var(--fx-shadow-lg), 0 0 70px -24px rgba(200,16,46,0.5)',
+          }}
+        >
+
           {/* Agency Logo & Name Section */}
           <motion.div 
             className="text-center space-y-6"
@@ -427,12 +424,13 @@ export const Login: React.FC<LoginProps> = ({ lang, onLogin }) => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4, duration: 0.8 }}
             >
-              <h1 className="text-4xl font-black tracking-tight bg-linear-to-r from-saas-primary-start via-saas-primary-via to-saas-primary-end bg-clip-text text-transparent uppercase">
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tight uppercase fx-chrome-text break-words">
                 {agencyBranding.name.split(' ').slice(0, 3).join(' ')}
               </h1>
-              <motion.p 
-                className="text-saas-text-muted font-bold uppercase tracking-[0.3em] text-[11px] mt-3"
-                animate={{ opacity: [0.6, 1, 0.6] }}
+              <motion.p
+                className="font-black uppercase tracking-[0.3em] text-[10px] sm:text-[11px] mt-3"
+                style={{ color: 'var(--fx-red-300)' }}
+                animate={{ opacity: [0.65, 1, 0.65] }}
                 transition={{ duration: 3, repeat: Infinity }}
               >
                 {t.login}
@@ -552,9 +550,14 @@ export const Login: React.FC<LoginProps> = ({ lang, onLogin }) => {
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm"
+                className="rounded-xl p-3 text-sm font-medium"
+                style={{
+                  color: 'var(--fx-red-200)',
+                  backgroundImage: 'linear-gradient(135deg, rgba(240,51,60,0.16), rgba(116,8,26,0.05))',
+                  border: '1px solid var(--fx-line-red-hi)',
+                }}
               >
-                {errorMessage}
+                ⚠️ {errorMessage}
               </motion.div>
             )}
 
@@ -586,9 +589,8 @@ export const Login: React.FC<LoginProps> = ({ lang, onLogin }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.55, duration: 0.8 }}
-            whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm bg-white border-2 border-saas-border text-saas-text-main hover:border-saas-primary-via hover:text-saas-primary-via transition-colors"
+            className="fx-btn fx-btn-ghost w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm"
           >
             <Globe size={17} />
             {lang === 'fr' ? 'Voir le site web' : 'مشاهدة الموقع الإلكتروني'}
@@ -606,14 +608,13 @@ export const Login: React.FC<LoginProps> = ({ lang, onLogin }) => {
               <motion.button
                 type="button"
                 onClick={() => { setErrorMessage(''); setIsSigningUp(true); }}
-                whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm bg-linear-to-r from-saas-primary-start via-saas-primary-via to-saas-primary-end text-white shadow-lg hover:opacity-95 transition-opacity"
+                className="fx-btn fx-btn-primary w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm"
               >
                 <UserIcon size={17} />
                 {lang === 'fr' ? 'Créer un compte administrateur' : 'إنشاء حساب مدير'}
               </motion.button>
-              <p className="text-xs text-saas-text-muted">
+              <p className="text-xs" style={{ color: 'var(--fx-ink-dim)' }}>
                 {lang === 'fr' ? '(première connexion uniquement)' : '(لأول اتصال فقط)'}
               </p>
             </motion.div>
@@ -630,16 +631,18 @@ export const Login: React.FC<LoginProps> = ({ lang, onLogin }) => {
               <button
                 type="button"
                 onClick={() => { setErrorMessage(''); setIsSigningUp(false); }}
-                className="text-sm font-semibold text-saas-primary-via hover:text-saas-primary-via/80 transition-colors"
+                className="text-sm font-semibold transition-colors"
+                style={{ color: 'var(--fx-red-300)' }}
               >
                 {lang === 'fr' ? '← Retour à la connexion' : '→ العودة إلى تسجيل الدخول'}
               </button>
             </motion.div>
           )}
 
-          {/* Decorative line */}
+          {/* Filet lumineux : la seule décoration animée de la carte */}
           <motion.div
-            className="h-0.5 bg-linear-to-r from-saas-primary-start via-saas-primary-via to-saas-primary-end rounded-full"
+            className="h-0.5 rounded-full"
+            style={{ backgroundImage: 'var(--fx-grad-red)' }}
             animate={{ scaleX: [0, 1, 0] }}
             transition={{ duration: 3, repeat: Infinity }}
           />

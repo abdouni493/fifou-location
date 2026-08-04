@@ -1,0 +1,954 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   FIFOU AUTO — « CARBONE & SANG »
+   ──────────────────────────────────────────────────────────────────────────
+   Peau unique du back-office : noir carbone + rouge sang, en DÉGRADÉS.
+
+   Pourquoi une couche à part plutôt qu'une retouche des 65 composants :
+   Tailwind v4 compile chaque utilitaire en `var(--color-*)`. En redéfinissant
+   ces variables + une poignée de classes de surface, toutes les interfaces
+   changent de peau d'un coup, sans risque pour la logique métier ni pour les
+   appels base de données.
+
+   Ce fichier est importé APRÈS theme-carbon.css : il gagne à égalité de
+   spécificité, et n'ajoute de la spécificité que là où c'est nécessaire.
+
+   Plan :
+     1. Jetons — échelle de noir, échelle de rouge, dégradés, mouvement
+     2. Surface de page (halo rouge + grain carbone)
+     3. Cartes, puits, panneaux
+     4. Boutons (toutes les familles saas-*)
+     5. Champs de formulaire
+     6. Sidebar & navbar
+     7. Tableaux, badges, onglets, modales
+     8. Animations réutilisables
+     9. Utilitaires responsives (mobile d'abord)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ══ 1. JETONS ═══════════════════════════════════════════════════════════ */
+
+:root {
+  /* — Échelle de noir : 6 marches, du fond de page à la surface flottante — */
+  --fx-black-000: #050507; /* puits le plus profond, ombres portées */
+  --fx-black-100: #08080B; /* fond de page */
+  --fx-black-200: #0C0C11; /* bandes, creux de carte */
+  --fx-black-300: #111117; /* surface de carte */
+  --fx-black-400: #16161D; /* carte survolée */
+  --fx-black-500: #1D1D25; /* champ, modale */
+  --fx-black-600: #26262F; /* bordure pleine, séparateur appuyé */
+
+  /* — Échelle de rouge sang : du reflet clair au sang figé —
+     -300 et au-dessus = TEXTE (AA sur noir). -500 et en dessous = REMPLISSAGE
+     (texte blanc dessus). Ne jamais écrire un petit corps en -500. */
+  --fx-red-200: #FFB3B6; /*  9.7:1 — chiffres clés, survol de lien */
+  --fx-red-300: #FF6B70; /*  6.4:1 — texte accent, icônes actives */
+  --fx-red-400: #F0333C; /*  4.6:1 — grands titres, bordures vives */
+  --fx-red-500: #C8102E; /*  remplissage principal (blanc dessus = 5.9:1) */
+  --fx-red-600: #A00C24; /*  remplissage appuyé */
+  --fx-red-700: #74081A; /*  fin de dégradé */
+  --fx-red-800: #4C0511; /*  sang figé — fonds teintés */
+  --fx-red-900: #2A030A; /*  presque noir rougi — halos */
+
+  /* — Texte : 4 niveaux, tous AA sur --fx-black-100 — */
+  --fx-ink:      #F6F7F8; /* 18.9:1 */
+  --fx-ink-soft: #CBD0D7; /* 12.4:1 */
+  --fx-ink-mute: #9AA0AA; /*  8.2:1 */
+  --fx-ink-dim:  #767C86; /*  5.0:1 */
+
+  /* — Traits — */
+  --fx-line:        rgba(255, 255, 255, 0.08);
+  --fx-line-strong: rgba(255, 255, 255, 0.15);
+  --fx-line-red:    rgba(200, 16, 46, 0.38);
+  --fx-line-red-hi: rgba(240, 51, 60, 0.62);
+
+  /* — DÉGRADÉS : le cœur de la peau —
+     Chaque grande zone reçoit son dégradé, jamais un aplat. */
+
+  /* Fond de page : noir profond réchauffé d'un souffle rouge en haut */
+  --fx-grad-page:
+    radial-gradient(120% 82% at 50% -18%, rgba(200, 16, 46, 0.16) 0%, transparent 62%),
+    radial-gradient(90% 60% at 8% 104%, rgba(116, 8, 26, 0.14) 0%, transparent 58%),
+    linear-gradient(178deg, #08080B 0%, #0A0A0E 44%, #060608 100%);
+
+  /* Surface de carte : dégradé diagonal très serré — donne le galbe carbone */
+  --fx-grad-surface: linear-gradient(158deg, #17171E 0%, #121218 52%, #0E0E13 100%);
+  --fx-grad-surface-hi: linear-gradient(158deg, #1E1E27 0%, #17171E 52%, #121218 100%);
+
+  /* Puits : plus SOMBRE que la carte, c'est ce qui creuse */
+  --fx-grad-well: linear-gradient(165deg, #0C0C11 0%, #090A0D 100%);
+
+  /* Rouge plein — boutons, pastilles actives */
+  --fx-grad-red: linear-gradient(135deg, #E01331 0%, #C8102E 38%, #8A0A1C 100%);
+  --fx-grad-red-hi: linear-gradient(135deg, #FF2137 0%, #D8122F 40%, #9C0B20 100%);
+  --fx-grad-red-deep: linear-gradient(135deg, #8A0A1C 0%, #5C0614 100%);
+
+  /* Rouge teinté — encarts, en-têtes de section, lignes survolées */
+  --fx-grad-red-tint: linear-gradient(135deg, rgba(200, 16, 46, 0.20) 0%, rgba(116, 8, 26, 0.07) 100%);
+  --fx-grad-red-veil: linear-gradient(135deg, rgba(200, 16, 46, 0.11) 0%, rgba(200, 16, 46, 0.02) 100%);
+
+  /* Chrome — actions secondaires appuyées (le lettrage du logo) */
+  --fx-grad-chrome: linear-gradient(135deg, #F2F4F6 0%, #C3C8CF 52%, #9AA0AA 100%);
+  --fx-grad-steel: linear-gradient(135deg, #2C2C35 0%, #1C1C23 100%);
+
+  /* Sidebar : noir qui rougit vers le bas, comme un capot chauffé */
+  --fx-grad-rail:
+    radial-gradient(78% 34% at 0% 100%, rgba(200, 16, 46, 0.22) 0%, transparent 72%),
+    linear-gradient(184deg, #0A0A0E 0%, #0D0D12 40%, #120A0E 100%);
+
+  /* — Ombres : sur du noir, c'est la LUEUR qui porte l'élévation — */
+  --fx-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.55);
+  --fx-shadow-md: 0 12px 30px -10px rgba(0, 0, 0, 0.75);
+  --fx-shadow-lg: 0 28px 64px -20px rgba(0, 0, 0, 0.85);
+  --fx-glow-red:  0 0 0 1px rgba(200, 16, 46, 0.28), 0 10px 34px -12px rgba(200, 16, 46, 0.55);
+  --fx-glow-red-hi: 0 0 0 1px rgba(240, 51, 60, 0.42), 0 18px 46px -14px rgba(200, 16, 46, 0.72);
+
+  /* Liseré haut : la ligne de lumière qui donne l'épaisseur d'une carte */
+  --fx-edge: inset 0 1px 0 rgba(255, 255, 255, 0.055);
+  --fx-edge-red: inset 0 1px 0 rgba(255, 120, 130, 0.16);
+
+  /* — Mouvement — */
+  --fx-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --fx-ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --fx-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --fx-t-fast: 140ms;
+  --fx-t: 240ms;
+  --fx-t-slow: 420ms;
+
+  /* — Rayons — */
+  --fx-r-sm: 0.625rem;
+  --fx-r: 0.875rem;
+  --fx-r-lg: 1.125rem;
+  --fx-r-xl: 1.5rem;
+}
+
+/* Le back-office ne connaît plus qu'une peau : carbone. On aligne donc les
+   jetons sémantiques quel que soit l'attribut de thème, pour que toute page
+   rendue avant l'hydratation soit déjà noire (pas de flash blanc). */
+html:not([data-surface="site"]) {
+  --color-saas-bg:              var(--fx-black-200);
+  --color-saas-surface:         var(--fx-black-300);
+  --color-saas-border:          var(--fx-line);
+  --color-saas-text-main:       var(--fx-ink);
+  --color-saas-text-muted:      var(--fx-ink-mute);
+
+  --color-saas-primary-start:   #E01331;
+  --color-saas-primary-via:     var(--fx-red-300);
+  --color-saas-primary-end:     var(--fx-red-700);
+
+  --color-saas-secondary-start: #2C2C35;
+  --color-saas-secondary-end:   #1C1C23;
+
+  --color-saas-danger-start:    #F0333C;
+  --color-saas-danger-end:      #A00C24;
+
+  color-scheme: dark;
+}
+
+/* ══ 2. SURFACE DE PAGE ══════════════════════════════════════════════════ */
+
+html:not([data-surface="site"]) body {
+  background: var(--fx-black-100);
+  background-image: var(--fx-grad-page);
+  background-attachment: fixed;
+  color: var(--fx-ink);
+}
+
+/* Grain carbone : une trame diagonale à 2 % qui empêche le noir d'être plat.
+   Posée en ::before fixe pour ne jamais scroller avec le contenu. */
+html:not([data-surface="site"]) body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.014) 0 1px, transparent 1px 4px);
+}
+html:not([data-surface="site"]) #root { position: relative; z-index: 1; }
+
+/* La zone de contenu garde le halo, mais atténué : les cartes doivent primer. */
+.fx-page-shell {
+  position: relative;
+  isolation: isolate;
+}
+.fx-page-shell::before {
+  content: '';
+  position: absolute;
+  inset: -20% -10% auto -10%;
+  height: 420px;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(60% 100% at 50% 0%, rgba(200, 16, 46, 0.13), transparent 70%);
+}
+
+/* ══ 3. CARTES, PUITS, PANNEAUX ══════════════════════════════════════════ */
+
+html:not([data-surface="site"]) .glass-card,
+html:not([data-surface="site"]) .bg-white,
+html:not([data-surface="site"]) .res-card {
+  background-color: transparent;
+  background-image: var(--fx-grad-surface);
+  border-color: var(--fx-line);
+  box-shadow: var(--fx-edge), var(--fx-shadow-md);
+}
+
+html:not([data-surface="site"]) .glass-card,
+html:not([data-surface="site"]) .res-card {
+  transition:
+    transform var(--fx-t) var(--fx-ease),
+    box-shadow var(--fx-t) var(--fx-ease),
+    border-color var(--fx-t) var(--fx-ease),
+    background-image var(--fx-t) var(--fx-ease);
+}
+
+html:not([data-surface="site"]) .glass-card:hover,
+html:not([data-surface="site"]) .res-card:hover {
+  background-image: var(--fx-grad-surface-hi);
+  border-color: var(--fx-line-red);
+  box-shadow: var(--fx-edge-red), var(--fx-shadow-lg), 0 0 28px -10px rgba(200, 16, 46, 0.5);
+}
+
+html:not([data-surface="site"]) .res-well,
+html:not([data-surface="site"]) .bg-slate-50,
+html:not([data-surface="site"]) .bg-gray-50,
+html:not([data-surface="site"]) .bg-saas-bg {
+  background-color: transparent;
+  background-image: var(--fx-grad-well);
+}
+
+/* — Carte « fx » : le nouveau standard des pages redessinées — */
+.fx-card {
+  position: relative;
+  border-radius: var(--fx-r-lg);
+  background-image: var(--fx-grad-surface);
+  border: 1px solid var(--fx-line);
+  box-shadow: var(--fx-edge), var(--fx-shadow-md);
+  transition:
+    transform var(--fx-t) var(--fx-ease),
+    box-shadow var(--fx-t) var(--fx-ease),
+    border-color var(--fx-t) var(--fx-ease);
+}
+/* Filet rouge en haut de carte : signe l'appartenance à la marque */
+.fx-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, rgba(200, 16, 46, 0.55), transparent);
+  opacity: 0;
+  transition: opacity var(--fx-t) var(--fx-ease);
+}
+.fx-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--fx-line-red);
+  box-shadow: var(--fx-edge-red), var(--fx-shadow-lg), 0 0 30px -12px rgba(200, 16, 46, 0.55);
+}
+.fx-card:hover::before { opacity: 1; }
+
+/* Variante « sans lévitation » : listes denses, lignes de tableau */
+.fx-card-flat:hover { transform: none; }
+
+/* Carte accentuée — le rouge tient la carte entière (KPI principal, alerte) */
+.fx-card-accent {
+  background-image: var(--fx-grad-red-tint), var(--fx-grad-surface);
+  border-color: var(--fx-line-red);
+}
+
+/* Puits : le creux d'une carte */
+.fx-well {
+  border-radius: var(--fx-r);
+  background-image: var(--fx-grad-well);
+  border: 1px solid var(--fx-line);
+}
+
+/* Panneau de section : en-tête rouge translucide + corps carbone */
+.fx-panel {
+  border-radius: var(--fx-r-lg);
+  overflow: hidden;
+  border: 1px solid var(--fx-line);
+  background-image: var(--fx-grad-surface);
+  box-shadow: var(--fx-edge), var(--fx-shadow-md);
+}
+.fx-panel-head {
+  padding: 1rem 1.25rem;
+  background-image: var(--fx-grad-red-veil);
+  border-bottom: 1px solid var(--fx-line);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Bandeau de titre de page */
+.fx-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--fx-r-xl);
+  border: 1px solid var(--fx-line);
+  background-image:
+    radial-gradient(90% 160% at 100% 0%, rgba(200, 16, 46, 0.24), transparent 62%),
+    var(--fx-grad-surface);
+  box-shadow: var(--fx-edge), var(--fx-shadow-md);
+}
+.fx-hero::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--fx-red-500), rgba(200, 16, 46, 0) 68%);
+}
+
+/* ══ 4. BOUTONS ══════════════════════════════════════════════════════════ */
+
+/* Base commune : toutes les familles héritent du même rythme d'interaction. */
+html:not([data-surface="site"]) .btn-saas-primary,
+html:not([data-surface="site"]) .btn-saas-secondary,
+html:not([data-surface="site"]) .btn-saas-success,
+html:not([data-surface="site"]) .btn-saas-warning,
+html:not([data-surface="site"]) .btn-saas-danger,
+html:not([data-surface="site"]) .btn-saas-outline,
+.fx-btn {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    transform var(--fx-t-fast) var(--fx-ease),
+    box-shadow var(--fx-t) var(--fx-ease),
+    background-image var(--fx-t) var(--fx-ease),
+    border-color var(--fx-t) var(--fx-ease),
+    color var(--fx-t) var(--fx-ease);
+}
+
+/* Balayage chromé : la lumière qui court sur la carrosserie au survol. */
+html:not([data-surface="site"]) .btn-saas-primary::after,
+html:not([data-surface="site"]) .btn-saas-danger::after,
+html:not([data-surface="site"]) .btn-saas-success::after,
+.fx-btn-primary::after,
+.fx-btn-ghost::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 42%;
+  z-index: -1;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.24), transparent);
+  transform: translateX(-140%) skewX(-18deg);
+  pointer-events: none;
+}
+html:not([data-surface="site"]) .btn-saas-primary:hover::after,
+html:not([data-surface="site"]) .btn-saas-danger:hover::after,
+html:not([data-surface="site"]) .btn-saas-success:hover::after,
+.fx-btn-primary:hover::after,
+.fx-btn-ghost:hover::after {
+  animation: fx-sheen 780ms var(--fx-ease);
+}
+
+/* Primaire — rouge sang plein */
+html:not([data-surface="site"]) .btn-saas-primary,
+.fx-btn-primary {
+  background-color: var(--fx-red-500);
+  background-image: var(--fx-grad-red);
+  color: #fff;
+  border: 1px solid rgba(255, 120, 130, 0.22);
+  box-shadow: var(--fx-edge-red), 0 6px 18px -6px rgba(200, 16, 46, 0.6);
+}
+html:not([data-surface="site"]) .btn-saas-primary:hover,
+.fx-btn-primary:hover {
+  background-image: var(--fx-grad-red-hi);
+  box-shadow: var(--fx-edge-red), 0 14px 34px -10px rgba(200, 16, 46, 0.78);
+  transform: translateY(-2px);
+}
+html:not([data-surface="site"]) .btn-saas-primary:active,
+.fx-btn-primary:active { transform: translateY(0) scale(0.975); }
+
+/* Secondaire — acier */
+html:not([data-surface="site"]) .btn-saas-secondary,
+.fx-btn-steel {
+  background-image: var(--fx-grad-steel);
+  color: var(--fx-ink);
+  border: 1px solid var(--fx-line-strong);
+  box-shadow: var(--fx-edge), var(--fx-shadow-sm);
+}
+html:not([data-surface="site"]) .btn-saas-secondary:hover,
+.fx-btn-steel:hover {
+  border-color: var(--fx-line-red);
+  color: var(--fx-red-200);
+  transform: translateY(-2px);
+}
+
+/* Contour — l'action tertiaire, la plus fréquente dans les barres d'outils */
+html:not([data-surface="site"]) .btn-saas-outline,
+.fx-btn-ghost {
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012));
+  color: var(--fx-ink-soft);
+  border: 1px solid var(--fx-line-strong);
+}
+html:not([data-surface="site"]) .btn-saas-outline:hover,
+.fx-btn-ghost:hover {
+  background-image: var(--fx-grad-red-veil);
+  border-color: var(--fx-line-red-hi);
+  color: var(--fx-red-200);
+  transform: translateY(-2px);
+}
+
+/* Danger — le rouge le plus sombre, pour ne pas concurrencer le primaire */
+html:not([data-surface="site"]) .btn-saas-danger,
+.fx-btn-danger {
+  background-image: linear-gradient(135deg, #B00E28 0%, #74081A 55%, #4C0511 100%);
+  color: #fff;
+  border: 1px solid rgba(240, 51, 60, 0.3);
+  box-shadow: var(--fx-edge-red), 0 6px 18px -6px rgba(116, 8, 26, 0.7);
+}
+html:not([data-surface="site"]) .btn-saas-danger:hover,
+.fx-btn-danger:hover {
+  background-image: linear-gradient(135deg, #D01130 0%, #8A0A1C 55%, #5C0614 100%);
+  box-shadow: var(--fx-edge-red), 0 14px 34px -10px rgba(200, 16, 46, 0.7);
+  transform: translateY(-2px);
+  animation: none; /* la secousse d'origine est remplacée par la lueur */
+}
+
+/* Succès / avertissement : conservés (un tableau de bord a besoin de ces
+   signaux) mais désaturés vers le carbone pour ne pas jurer avec le rouge. */
+html:not([data-surface="site"]) .btn-saas-success,
+.fx-btn-success {
+  background-image: linear-gradient(135deg, #10A46F 0%, #0A7350 100%);
+  color: #fff;
+  border: 1px solid rgba(52, 211, 153, 0.24);
+  box-shadow: var(--fx-edge), 0 6px 18px -6px rgba(16, 164, 111, 0.45);
+}
+html:not([data-surface="site"]) .btn-saas-success:hover,
+.fx-btn-success:hover { transform: translateY(-2px); box-shadow: var(--fx-edge), 0 14px 32px -10px rgba(16, 164, 111, 0.6); }
+
+html:not([data-surface="site"]) .btn-saas-warning,
+.fx-btn-warning {
+  background-image: linear-gradient(135deg, #D98410 0%, #A85C08 100%);
+  color: #fff;
+  border: 1px solid rgba(251, 191, 36, 0.24);
+  box-shadow: var(--fx-edge), 0 6px 18px -6px rgba(217, 132, 16, 0.45);
+}
+html:not([data-surface="site"]) .btn-saas-warning:hover,
+.fx-btn-warning:hover { transform: translateY(-2px); box-shadow: var(--fx-edge), 0 14px 32px -10px rgba(217, 132, 16, 0.6); }
+
+/* Le survol d'origine faisait vibrer le bouton danger — trop bruyant sur une
+   page dense. On neutralise l'animation héritée d'index.css. */
+html:not([data-surface="site"]) .btn-saas-danger:hover { animation: none !important; }
+
+/* — Bouton d'icône : la brique des barres d'action de carte — */
+.fx-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: var(--fx-r-sm);
+  border: 1px solid var(--fx-line-strong);
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
+  color: var(--fx-ink-soft);
+  transition: all var(--fx-t) var(--fx-ease);
+  cursor: pointer;
+}
+.fx-icon-btn:hover {
+  background-image: var(--fx-grad-red-veil);
+  border-color: var(--fx-line-red-hi);
+  color: var(--fx-red-200);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -8px rgba(200, 16, 46, 0.6);
+}
+.fx-icon-btn:active { transform: translateY(0) scale(0.94); }
+.fx-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+/* Teintes fonctionnelles du bouton d'icône */
+.fx-icon-btn-danger:hover {
+  background-image: linear-gradient(135deg, rgba(240, 51, 60, 0.24), rgba(116, 8, 26, 0.1));
+  border-color: rgba(240, 51, 60, 0.6);
+  color: #FFB3B6;
+}
+.fx-icon-btn-success:hover {
+  background-image: linear-gradient(135deg, rgba(16, 164, 111, 0.24), rgba(10, 115, 80, 0.1));
+  border-color: rgba(52, 211, 153, 0.55);
+  color: #6EE7B7;
+  box-shadow: 0 8px 20px -8px rgba(16, 164, 111, 0.55);
+}
+.fx-icon-btn-warning:hover {
+  background-image: linear-gradient(135deg, rgba(217, 132, 16, 0.24), rgba(168, 92, 8, 0.1));
+  border-color: rgba(251, 191, 36, 0.55);
+  color: #FCD34D;
+  box-shadow: 0 8px 20px -8px rgba(217, 132, 16, 0.55);
+}
+
+/* ══ 5. CHAMPS DE FORMULAIRE ═════════════════════════════════════════════ */
+
+html:not([data-surface="site"]) .input-saas,
+.fx-input,
+html:not([data-surface="site"]) input[type="text"],
+html:not([data-surface="site"]) input[type="email"],
+html:not([data-surface="site"]) input[type="password"],
+html:not([data-surface="site"]) input[type="number"],
+html:not([data-surface="site"]) input[type="tel"],
+html:not([data-surface="site"]) input[type="date"],
+html:not([data-surface="site"]) input[type="time"],
+html:not([data-surface="site"]) input[type="datetime-local"],
+html:not([data-surface="site"]) input[type="search"],
+html:not([data-surface="site"]) textarea,
+html:not([data-surface="site"]) select {
+  background-color: transparent;
+  background-image: linear-gradient(165deg, #1B1B23 0%, #141419 100%);
+  border-color: var(--fx-line-strong);
+  color: var(--fx-ink);
+  transition:
+    border-color var(--fx-t) var(--fx-ease),
+    box-shadow var(--fx-t) var(--fx-ease),
+    background-image var(--fx-t) var(--fx-ease);
+}
+
+html:not([data-surface="site"]) .input-saas:focus,
+.fx-input:focus,
+html:not([data-surface="site"]) input:focus,
+html:not([data-surface="site"]) textarea:focus,
+html:not([data-surface="site"]) select:focus {
+  outline: none;
+  border-color: var(--fx-red-400);
+  background-image: linear-gradient(165deg, #201820 0%, #17141A 100%);
+  box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.18);
+}
+
+html:not([data-surface="site"]) input::placeholder,
+html:not([data-surface="site"]) textarea::placeholder { color: var(--fx-ink-dim); }
+
+/* Champ « fx » complet — pour les formulaires redessinés */
+.fx-field {
+  width: 100%;
+  border-radius: var(--fx-r);
+  padding: 0.7rem 0.9rem;
+  font-weight: 500;
+  background-image: linear-gradient(165deg, #1B1B23 0%, #141419 100%);
+  border: 1px solid var(--fx-line-strong);
+  color: var(--fx-ink);
+}
+.fx-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--fx-ink-mute);
+}
+
+/* Cases et interrupteurs : accent rouge natif */
+html:not([data-surface="site"]) input[type="checkbox"],
+html:not([data-surface="site"]) input[type="radio"],
+html:not([data-surface="site"]) input[type="range"] {
+  accent-color: var(--fx-red-500);
+}
+
+/* Le sélecteur de date natif rend son icône en noir sur noir sans ce filtre. */
+html:not([data-surface="site"]) input[type="date"]::-webkit-calendar-picker-indicator,
+html:not([data-surface="site"]) input[type="time"]::-webkit-calendar-picker-indicator,
+html:not([data-surface="site"]) input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) sepia(1) saturate(6) hue-rotate(-25deg) brightness(0.95);
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+html:not([data-surface="site"]) option { background-color: #17171E; color: var(--fx-ink); }
+
+/* ══ 6. SIDEBAR & NAVBAR ═════════════════════════════════════════════════ */
+
+.fx-rail {
+  background-color: var(--fx-black-100);
+  background-image: var(--fx-grad-rail);
+  border-right: 1px solid var(--fx-line);
+  box-shadow: 8px 0 40px -16px rgba(0, 0, 0, 0.9);
+}
+[dir="rtl"] .fx-rail {
+  border-right: none;
+  border-left: 1px solid var(--fx-line);
+  box-shadow: -8px 0 40px -16px rgba(0, 0, 0, 0.9);
+}
+
+/* Lien de navigation : le repos est muet, l'actif porte tout le rouge. */
+.fx-nav-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--fx-r);
+  border: 1px solid transparent;
+  color: var(--fx-ink-mute);
+  text-align: left;
+  transition: all var(--fx-t) var(--fx-ease);
+  cursor: pointer;
+}
+[dir="rtl"] .fx-nav-link { text-align: right; }
+
+.fx-nav-link:hover {
+  color: var(--fx-ink);
+  background-image: linear-gradient(90deg, rgba(255, 255, 255, 0.055), transparent);
+  border-color: var(--fx-line);
+}
+.fx-nav-link:hover .fx-nav-icon { transform: scale(1.14); }
+
+.fx-nav-link-active {
+  color: #fff;
+  background-image: var(--fx-grad-red-tint);
+  border-color: var(--fx-line-red);
+  box-shadow: var(--fx-edge-red), 0 8px 24px -12px rgba(200, 16, 46, 0.75);
+}
+/* Le rail rouge à gauche du lien actif */
+.fx-nav-link-active::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 18%;
+  bottom: 18%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background-image: linear-gradient(180deg, var(--fx-red-400), var(--fx-red-700));
+  box-shadow: 0 0 12px rgba(240, 51, 60, 0.85);
+}
+[dir="rtl"] .fx-nav-link-active::before {
+  left: auto;
+  right: -1px;
+  border-radius: 3px 0 0 3px;
+}
+.fx-nav-icon {
+  flex-shrink: 0;
+  font-size: 1.15rem;
+  line-height: 1;
+  transition: transform var(--fx-t) var(--fx-ease-spring);
+}
+.fx-nav-link-active .fx-nav-icon {
+  transform: scale(1.14);
+  filter: drop-shadow(0 0 8px rgba(240, 51, 60, 0.6));
+}
+
+/* Barre du haut : verre carbone flouté */
+.fx-topbar {
+  background-color: rgba(10, 10, 14, 0.82);
+  background-image: linear-gradient(180deg, rgba(200, 16, 46, 0.09), transparent 78%);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border-bottom: 1px solid var(--fx-line);
+}
+
+/* ══ 7. TABLEAUX, BADGES, ONGLETS, MODALES ═══════════════════════════════ */
+
+.fx-table-head {
+  background-image: var(--fx-grad-red-veil);
+  border-bottom: 1px solid var(--fx-line);
+}
+.fx-table-row { transition: background-image var(--fx-t) var(--fx-ease); }
+.fx-table-row:hover { background-image: linear-gradient(90deg, rgba(200, 16, 46, 0.10), transparent); }
+
+.fx-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 1px solid var(--fx-line-strong);
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  color: var(--fx-ink-soft);
+}
+.fx-badge-red {
+  border-color: var(--fx-line-red);
+  background-image: var(--fx-grad-red-tint);
+  color: var(--fx-red-200);
+}
+.fx-badge-green {
+  border-color: rgba(52, 211, 153, 0.4);
+  background-image: linear-gradient(135deg, rgba(16, 164, 111, 0.22), rgba(10, 115, 80, 0.07));
+  color: #6EE7B7;
+}
+.fx-badge-amber {
+  border-color: rgba(251, 191, 36, 0.4);
+  background-image: linear-gradient(135deg, rgba(217, 132, 16, 0.22), rgba(168, 92, 8, 0.07));
+  color: #FCD34D;
+}
+.fx-badge-steel {
+  border-color: var(--fx-line-strong);
+  background-image: var(--fx-grad-steel);
+  color: var(--fx-ink-soft);
+}
+
+/* Onglets segmentés */
+.fx-tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.3rem;
+  border-radius: var(--fx-r);
+  border: 1px solid var(--fx-line);
+  background-image: var(--fx-grad-well);
+}
+.fx-tab {
+  position: relative;
+  padding: 0.5rem 0.95rem;
+  border-radius: var(--fx-r-sm);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--fx-ink-mute);
+  white-space: nowrap;
+  transition: all var(--fx-t) var(--fx-ease);
+  cursor: pointer;
+}
+.fx-tab:hover { color: var(--fx-ink); background-color: rgba(255, 255, 255, 0.045); }
+.fx-tab-active {
+  color: #fff;
+  background-image: var(--fx-grad-red);
+  box-shadow: var(--fx-edge-red), 0 6px 18px -8px rgba(200, 16, 46, 0.8);
+}
+.fx-tab-active:hover { color: #fff; }
+
+/* Modale : voile noir + panneau carbone */
+.fx-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(4, 4, 6, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.fx-modal {
+  width: 100%;
+  border-radius: var(--fx-r-xl);
+  border: 1px solid var(--fx-line-strong);
+  background-image:
+    radial-gradient(90% 120% at 100% 0%, rgba(200, 16, 46, 0.16), transparent 60%),
+    var(--fx-grad-surface);
+  box-shadow: var(--fx-edge-red), var(--fx-shadow-lg), 0 0 60px -20px rgba(200, 16, 46, 0.4);
+  max-height: calc(100dvh - 2rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.fx-modal-head {
+  padding: 1.1rem 1.35rem;
+  border-bottom: 1px solid var(--fx-line);
+  background-image: var(--fx-grad-red-veil);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+/* En-tête plein rouge : les modales historiques portaient un dégradé de marque
+   sur toute leur barre de titre. On le conserve, aux nouvelles couleurs. */
+.fx-modal-head-grad {
+  background-image: var(--fx-grad-red);
+  border-bottom: 1px solid var(--fx-line-red);
+  box-shadow: var(--fx-edge-red);
+}
+
+.fx-modal-body { padding: 1.35rem; overflow-y: auto; flex: 1; }
+.fx-modal-foot {
+  padding: 1rem 1.35rem;
+  border-top: 1px solid var(--fx-line);
+  background-image: var(--fx-grad-well);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+/* Barre de progression / jauge */
+.fx-meter {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background-image: var(--fx-grad-well);
+  border: 1px solid var(--fx-line);
+}
+.fx-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  background-image: var(--fx-grad-red);
+  box-shadow: 0 0 14px rgba(200, 16, 46, 0.6);
+  transition: width var(--fx-t-slow) var(--fx-ease);
+}
+
+/* Séparateur avec dégradé */
+.fx-divider {
+  height: 1px;
+  border: 0;
+  background-image: linear-gradient(90deg, transparent, var(--fx-line-strong) 22%, var(--fx-line-strong) 78%, transparent);
+}
+
+/* Titre de section */
+.fx-title {
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--fx-ink);
+}
+.fx-eyebrow {
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fx-red-300);
+}
+/* Le lettrage chromé du logo, réutilisable sur les grands titres */
+.fx-chrome-text {
+  background-image: var(--fx-grad-chrome);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ══ 8. ANIMATIONS ═══════════════════════════════════════════════════════ */
+
+@keyframes fx-sheen {
+  0%   { transform: translateX(-140%) skewX(-18deg); }
+  100% { transform: translateX(320%)  skewX(-18deg); }
+}
+
+@keyframes fx-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+.fx-rise { animation: fx-rise var(--fx-t-slow) var(--fx-ease) both; }
+
+@keyframes fx-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.fx-fade { animation: fx-fade var(--fx-t) var(--fx-ease) both; }
+
+@keyframes fx-pop {
+  0%   { opacity: 0; transform: scale(0.94) translateY(10px); }
+  100% { opacity: 1; transform: none; }
+}
+.fx-pop { animation: fx-pop 320ms var(--fx-ease-spring) both; }
+
+/* Pulsation rouge — points d'état « en direct » uniquement */
+@keyframes fx-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(240, 51, 60, 0.55); }
+  50%      { box-shadow: 0 0 0 7px rgba(240, 51, 60, 0); }
+}
+.fx-pulse { animation: fx-pulse 2s var(--fx-ease) infinite; }
+
+/* Chargement : bande qui balaie le squelette */
+@keyframes fx-shimmer {
+  0%   { background-position: -160% 0; }
+  100% { background-position: 260% 0; }
+}
+.fx-skeleton {
+  border-radius: var(--fx-r-sm);
+  background-image: linear-gradient(90deg, #121218 22%, #1E1E27 42%, #121218 62%);
+  background-size: 260% 100%;
+  animation: fx-shimmer 1.5s linear infinite;
+}
+
+/* Cascade d'apparition d'une grille de cartes.
+   Douze marches suffisent : au-delà, l'attente se voit plus que l'effet. */
+.fx-stagger > * { animation: fx-rise 460ms var(--fx-ease) both; }
+.fx-stagger > *:nth-child(1)  { animation-delay: 0ms; }
+.fx-stagger > *:nth-child(2)  { animation-delay: 40ms; }
+.fx-stagger > *:nth-child(3)  { animation-delay: 80ms; }
+.fx-stagger > *:nth-child(4)  { animation-delay: 120ms; }
+.fx-stagger > *:nth-child(5)  { animation-delay: 160ms; }
+.fx-stagger > *:nth-child(6)  { animation-delay: 200ms; }
+.fx-stagger > *:nth-child(7)  { animation-delay: 240ms; }
+.fx-stagger > *:nth-child(8)  { animation-delay: 280ms; }
+.fx-stagger > *:nth-child(9)  { animation-delay: 320ms; }
+.fx-stagger > *:nth-child(10) { animation-delay: 360ms; }
+.fx-stagger > *:nth-child(11) { animation-delay: 400ms; }
+.fx-stagger > *:nth-child(n+12) { animation-delay: 440ms; }
+
+/* ══ 9. RESPONSIVE — MOBILE D'ABORD ══════════════════════════════════════ */
+
+/* Rien ne doit jamais provoquer de défilement horizontal de la page. */
+html, body { max-width: 100%; overflow-x: hidden; }
+
+/* Les longues chaînes sans espace (immatriculations, e-mails, VIN) sont la
+   première cause de débordement sur téléphone. */
+html:not([data-surface="site"]) body { overflow-wrap: anywhere; }
+
+/* Toute grille de contenu retombe sur une colonne sous 640 px, quelle que
+   soit la classe posée dans le composant. Filet de sécurité global : les
+   pages redessinées déclarent déjà leurs propres points de rupture. */
+@media (max-width: 640px) {
+  .fx-modal { max-height: calc(100dvh - 1rem); border-radius: var(--fx-r-lg); }
+  .fx-modal-body { padding: 1rem; }
+  .fx-modal-head, .fx-modal-foot { padding: 0.85rem 1rem; }
+  .fx-modal-foot > * { flex: 1 1 auto; }
+
+  /* Les barres d'outils denses passent en défilement horizontal contenu
+     plutôt que d'élargir la page. */
+  .fx-scroll-x {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .fx-scroll-x::-webkit-scrollbar { display: none; }
+  .fx-scroll-x > * { flex-shrink: 0; }
+}
+
+/* Un tableau reste un tableau : il défile dans son propre cadre. */
+.fx-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--fx-r);
+}
+
+/* Cible tactile minimale de 40 px sur téléphone (WCAG 2.2 AA = 24 px, on vise
+   le confort réel du pouce). */
+@media (pointer: coarse) {
+  .fx-icon-btn, .fx-tab, .fx-nav-link { min-height: 40px; }
+}
+
+/* Zone sûre iOS (encoche + barre de gestes) */
+.fx-safe-b { padding-bottom: max(0px, env(safe-area-inset-bottom)); }
+.fx-safe-t { padding-top: max(0px, env(safe-area-inset-top)); }
+
+/* Barres de défilement carbone */
+html:not([data-surface="site"]) ::-webkit-scrollbar { width: 8px; height: 8px; }
+html:not([data-surface="site"]) ::-webkit-scrollbar-track,
+html:not([data-surface="site"]) .custom-scrollbar::-webkit-scrollbar-track { background: var(--fx-black-100); }
+html:not([data-surface="site"]) ::-webkit-scrollbar-thumb,
+html:not([data-surface="site"]) .custom-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background-image: linear-gradient(180deg, #2E2E38, #1B1B22);
+}
+html:not([data-surface="site"]) ::-webkit-scrollbar-thumb:hover,
+html:not([data-surface="site"]) .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-image: var(--fx-grad-red);
+}
+
+/* Focus visible unifié : une seule façon d'être focalisé dans toute l'app. */
+html:not([data-surface="site"]) :focus-visible {
+  outline: 2px solid var(--fx-red-400);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Sélection de texte aux couleurs de la marque */
+html:not([data-surface="site"]) ::selection {
+  background: rgba(200, 16, 46, 0.42);
+  color: #fff;
+}
+
+/* ── Mouvement réduit : on coupe tout, le contenu reste immédiatement lisible ── */
+@media (prefers-reduced-motion: reduce) {
+  .fx-rise, .fx-fade, .fx-pop, .fx-pulse, .fx-skeleton,
+  .fx-stagger > * { animation: none !important; }
+  .fx-card:hover, .fx-btn-primary:hover, .fx-icon-btn:hover { transform: none; }
+  html:not([data-surface="site"]) .btn-saas-primary:hover::after,
+  html:not([data-surface="site"]) .btn-saas-danger:hover::after,
+  .fx-btn-primary:hover::after { animation: none; }
+}

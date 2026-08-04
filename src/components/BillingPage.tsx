@@ -570,7 +570,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({ lang }) => {
 
       {/* Invoice Details Modal */}
       {isDetailsModalOpen && selectedInvoice && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fx-overlay flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -816,7 +816,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({ lang }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            className="fx-overlay"
           >
             <motion.div
               initial={{ scale: 0.95 }}
@@ -850,7 +850,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({ lang }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            className="fx-overlay"
           >
             <motion.div
               initial={{ scale: 0.95 }}

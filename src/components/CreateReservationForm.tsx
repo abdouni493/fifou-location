@@ -2944,13 +2944,13 @@ export const Step5AdditionalServices: React.FC<{
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            className="fx-overlay p-4"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto"
+              className="fx-modal sm:max-w-2xl p-6 max-h-[90vh] overflow-y-auto"
             >
               <h3 className="text-xl font-black text-slate-900 mb-6">
                 ➕ {lang === 'fr' ? 'Créer un Service' : 'إنشاء خدمة'}

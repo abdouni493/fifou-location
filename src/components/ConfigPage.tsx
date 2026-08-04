@@ -657,7 +657,7 @@ export const ConfigPage: React.FC<ConfigPageProps> = ({ lang, user }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-saas-bg via-saas-bg-light to-saas-bg p-4 sm:p-6">
+    <div className="min-h-full p-4 sm:p-6">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <motion.div
@@ -684,7 +684,7 @@ export const ConfigPage: React.FC<ConfigPageProps> = ({ lang, user }) => {
             onClick={() => setActiveTab('general')}
             className={`flex-1 py-3 px-6 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
               activeTab === 'general'
-                ? 'bg-linear-to-r from-saas-primary-start via-saas-primary-via to-saas-primary-end text-white shadow-lg'
+                ? 'fx-modal-head-grad text-white shadow-lg'
                 : 'bg-white border-2 border-saas-border text-saas-text-main hover:border-saas-primary-via'
             }`}
           >
@@ -694,7 +694,7 @@ export const ConfigPage: React.FC<ConfigPageProps> = ({ lang, user }) => {
             onClick={() => setActiveTab('profile')}
             className={`flex-1 py-3 px-6 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
               activeTab === 'profile'
-                ? 'bg-linear-to-r from-saas-primary-start via-saas-primary-via to-saas-primary-end text-white shadow-lg'
+                ? 'fx-modal-head-grad text-white shadow-lg'
                 : 'bg-white border-2 border-saas-border text-saas-text-main hover:border-saas-primary-via'
             }`}
           >
@@ -704,7 +704,7 @@ export const ConfigPage: React.FC<ConfigPageProps> = ({ lang, user }) => {
             onClick={() => setActiveTab('database')}
             className={`flex-1 py-3 px-6 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
               activeTab === 'database'
-                ? 'bg-linear-to-r from-saas-primary-start via-saas-primary-via to-saas-primary-end text-white shadow-lg'
+                ? 'fx-modal-head-grad text-white shadow-lg'
                 : 'bg-white border-2 border-saas-border text-saas-text-main hover:border-saas-primary-via'
             }`}
           >
@@ -758,7 +758,7 @@ export const ConfigPage: React.FC<ConfigPageProps> = ({ lang, user }) => {
               exit={{ opacity: 0, y: -10 }}
               className="bg-white rounded-[2rem] shadow-lg border border-saas-border overflow-hidden"
             >
-              <div className="p-6 border-b border-saas-border bg-linear-to-r from-saas-primary-start via-saas-primary-via to-saas-primary-end text-white">
+              <div className="p-6 border-b border-saas-border fx-modal-head-grad text-white">
                 <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
                   🏢 {{fr: 'Informations de l\'agence', ar: 'معلومات الوكالة'}[lang]}
                 </h2>

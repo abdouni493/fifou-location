@@ -627,7 +627,7 @@ export const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({ la
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-saas-bg via-saas-bg-light to-saas-bg p-4 sm:p-6">
+    <div className="min-h-full p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div
@@ -720,7 +720,7 @@ export const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({ la
                   onClick={() => setActiveTab(tab.id)}
                   className={`py-3 px-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm sm:text-base ${
                     activeTab === tab.id
-                      ? 'bg-linear-to-r from-saas-primary-start via-saas-primary-via to-saas-primary-end text-white shadow-lg'
+                      ? 'fx-modal-head-grad text-white shadow-lg'
                       : 'bg-white border-2 border-saas-border text-saas-text-main hover:border-saas-primary-via'
                   }`}
                 >
@@ -946,13 +946,13 @@ export const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({ la
               {/* Add/Edit Special Modal */}
               <AnimatePresence>
                 {showSpecialModal && (
-                  <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+                  <div className="fx-overlay">
                     <motion.div
                       initial={{ opacity: 0, scale: 0.95, y: 20 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       className="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-saas-border"
                     >
-                      <div className="p-8 border-b border-saas-border flex items-center justify-between bg-linear-to-r from-saas-primary-start via-saas-primary-via to-saas-primary-end text-white">
+                      <div className="p-8 border-b border-saas-border flex items-center justify-between fx-modal-head-grad text-white">
                         <div>
                           <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
                             {editingSpecial ? '✏️ Modifier l\'offre spéciale' : '⭐ Nouvelle offre spéciale'}

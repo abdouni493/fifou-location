@@ -9,8 +9,12 @@ import { HistoryModal } from './HistoryModal';
 import { CarReportModal } from './CarReportModal';
 import { ConfirmModal } from './ConfirmModal';
 import { CommissionModal } from './CommissionModal';
-import { Plus, Search, Loader2, RefreshCw } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Plus, RefreshCw } from 'lucide-react';
+import { useCan } from '../utils/permissions';
+import {
+  PageHeader, StatCard, StatGrid, Toolbar, SearchInput, Segmented, Btn,
+  EmptyState, LoadingState, ErrorBanner,
+} from './ui/fx';
 import { getCarsWithOwners, addCar, updateCar, deleteCar, AddCarData, CarOwnerInput } from '../services/carService';
 import { eurOrUndefined } from '../utils/currency';
 import { addVehicleExpense, getVehicleExpenses } from '../services/expenseService';
@@ -24,6 +28,7 @@ interface CarsPageProps {
 }
 
 export const CarsPage: React.FC<CarsPageProps> = ({ lang, isAuthLoading = false, user = null }) => {
+  const can = useCan('vehicles');
   const [cars, setCars] = useState<Car[]>([]);
   const [reservations, setReservations] = useState<ReservationDetails[]>([]);
 
@@ -442,154 +447,127 @@ export const CarsPage: React.FC<CarsPageProps> = ({ lang, isAuthLoading = false,
     }
   };
 
+  const fr = lang === 'fr';
+
   return (
-    <div className="space-y-10">
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-red-100 border-2 border-red-400 text-red-800 p-4 rounded-2xl"
-        >
-          {error}
-        </motion.div>
-      )}
+    <div className="max-w-[92rem] mx-auto">
+      <PageHeader
+        icon="🚗"
+        eyebrow={fr ? 'Flotte' : 'الأسطول'}
+        title={fr ? 'Parc automobile' : 'أسطول السيارات'}
+        subtitle={
+          fr
+            ? 'Véhicules, disponibilité en temps réel, tarifs et conciergerie.'
+            : 'المركبات والتوفر والأسعار والوكالة.'
+        }
+        actions={
+          <>
+            <Btn tone="steel" onClick={loadCarsData} title={fr ? 'Actualiser' : 'تحديث'}>
+              <RefreshCw size={16} />
+              <span className="hidden sm:inline">{fr ? 'Actualiser' : 'تحديث'}</span>
+            </Btn>
+            {can('create') && (
+              <Btn tone="primary" onClick={handleAddCar}>
+                <Plus size={16} />
+                {fr ? 'Nouveau véhicule' : 'مركبة جديدة'}
+              </Btn>
+            )}
+          </>
+        }
+      >
+        {!loading && (
+          <Segmented<'personal' | 'consignment'>
+            value={activeTab}
+            onChange={setActiveTab}
+            options={[
+              { value: 'personal', label: fr ? '🚗 Mes véhicules' : '🚗 مركباتي', badge: personalCars.length },
+              { value: 'consignment', label: fr ? '🤝 Conciergerie' : '🤝 بالوكالة', badge: consignmentCars.length },
+            ]}
+            className="w-full sm:w-auto"
+          />
+        )}
+      </PageHeader>
 
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 bg-white p-8 rounded-2xl border border-saas-border shadow-sm">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-black text-saas-text-main tracking-tighter uppercase flex items-center gap-3">
-            {lang === 'fr' ? 'Parc Automobile' : 'أسطول السيارات'}
-          </h1>
-          <p className="text-saas-primary-via font-bold text-[10px] uppercase tracking-[0.3em]">
-            {lang === 'fr' ? 'Gestion de votre flotte premium' : 'إدارة أسطولك المتميز'}
-          </p>
-        </div>
+      {error && <ErrorBanner message={error} onRetry={loadCarsData} retryLabel={fr ? 'Recharger' : 'إعادة'} />}
 
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          <div className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-saas-text-muted group-focus-within:text-saas-primary-via transition-colors" size={18} />
-            <input
-              type="text"
-              placeholder={lang === 'fr' ? 'Rechercher un véhicule...' : 'بحث عن مركبة...'}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-12 pr-6 py-3.5 bg-saas-bg border border-saas-border rounded-xl outline-none focus:border-saas-primary-via w-full sm:w-80 transition-all font-medium text-sm shadow-sm"
+      {/* ── Compteurs de statut réel (section active) ── */}
+      {!loading && (
+        <div className="mb-5">
+          <StatGrid cols={4}>
+            <StatCard
+              label={fr ? 'Disponibles' : 'متاحة'}
+              value={counters.disponible}
+              icon="✅" tone="green"
             />
-          </div>
-          <button
-            onClick={loadCarsData}
-            className="btn-saas-secondary px-6 py-3.5 group w-full sm:w-auto justify-center"
-            title={lang === 'fr' ? 'Actualiser' : 'تحديث'}
-          >
-            <RefreshCw size={20} className="group-hover:rotate-180 transition-transform duration-500" />
-            <span className="font-bold uppercase tracking-widest text-xs">
-              {lang === 'fr' ? 'Actualiser' : 'تحديث'}
-            </span>
-          </button>
-          <button
-            onClick={handleAddCar}
-            className="btn-saas-primary px-8 py-3.5 group w-full sm:w-auto justify-center"
-          >
-            <Plus size={20} className="group-hover:rotate-90 transition-transform duration-500" />
-            <span className="font-bold uppercase tracking-widest text-xs">
-              {lang === 'fr' ? 'Nouveau Véhicule' : 'مركبة جديدة'}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* ── Sections : véhicules personnels / véhicules en conciergerie ──────── */}
-      {!loading && (
-        <div className="flex flex-col sm:flex-row gap-2 p-1.5 bg-white border border-saas-border rounded-2xl shadow-sm">
-          {([
-            { key: 'personal'    as const, label: lang === 'fr' ? '🚗 Mes véhicules personnels' : '🚗 مركباتي الشخصية', count: personalCars.length },
-            { key: 'consignment' as const, label: lang === 'fr' ? '🤝 Véhicules en conciergerie' : '🤝 مركبات بالوكالة',  count: consignmentCars.length },
-          ]).map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 py-3.5 px-5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2.5 ${
-                activeTab === tab.key
-                  ? 'bg-saas-bg text-saas-primary-via border border-saas-border shadow-sm'
-                  : 'text-saas-text-muted hover:text-saas-text-main'
-              }`}
-            >
-              {tab.label}
-              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${
-                activeTab === tab.key ? 'bg-saas-primary-via text-white' : 'bg-saas-bg text-saas-text-muted'
-              }`}>
-                {tab.count}
-              </span>
-            </button>
-          ))}
+            <StatCard
+              label={fr ? 'Réservés' : 'محجوزة'}
+              value={counters.reserve}
+              icon="📅" tone="amber"
+            />
+            <StatCard
+              label={fr ? 'En location' : 'في الإيجار'}
+              value={counters.louer}
+              icon="🔑" tone="red"
+            />
+            <StatCard
+              label={fr ? 'En maintenance' : 'صيانة'}
+              value={counters.maintenance}
+              icon="🔧" tone="steel"
+            />
+          </StatGrid>
         </div>
       )}
 
-      {/* ── Compteurs statuts réels (section active) ─────────────────────────── */}
-      {!loading && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[
-            { key: 'disponible', label: { fr: 'Disponibles', ar: 'متاحة' },     color: 'bg-green-50 border-green-200 text-green-700',  dot: 'bg-green-500',  count: counters.disponible },
-            { key: 'reserve',    label: { fr: 'Réservés',    ar: 'محجوزة' },    color: 'bg-amber-50 border-amber-200 text-amber-700',   dot: 'bg-amber-500',  count: counters.reserve },
-            { key: 'louer',      label: { fr: 'En Location', ar: 'في الإيجار' }, color: 'bg-red-50 border-red-200 text-red-700',         dot: 'bg-red-500',    count: counters.louer },
-            { key: 'maintenance',label: { fr: 'Maintenance', ar: 'صيانة' },     color: 'bg-gray-50 border-gray-200 text-gray-600',      dot: 'bg-gray-500',   count: counters.maintenance },
-          ].map(item => (
-            <motion.div key={item.key}
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-              className={`glass-card border flex items-center gap-3 p-4 ${item.color}`}>
-              <span className={`w-3 h-3 rounded-full flex-shrink-0 ${item.dot}`} />
-              <div>
-                <p className="text-2xl font-black">{item.count}</p>
-                <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">{item.label[lang]}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      )}
+      <Toolbar>
+        <SearchInput
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder={fr ? 'Marque, modèle, immatriculation, réf. conciergerie…' : 'العلامة، الطراز، اللوحة…'}
+        />
+      </Toolbar>
 
       {loading ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex items-center justify-center min-h-96 bg-white rounded-2xl border border-saas-border"
-        >
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="w-12 h-12 text-saas-primary-via animate-spin" />
-            <p className="text-saas-text-muted font-medium">
-              {lang === 'fr' ? 'Chargement des véhicules...' : 'جاري تحميل السيارات...'}
-            </p>
-          </div>
-        </motion.div>
+        <LoadingState label={fr ? 'Chargement des véhicules…' : 'جاري تحميل السيارات…'} rows={8} />
+      ) : filteredCars.length === 0 ? (
+        <EmptyState
+          icon="🚗"
+          title={
+            activeTab === 'consignment'
+              ? (fr ? 'Aucun véhicule en conciergerie' : 'لا مركبات بالوكالة')
+              : (fr ? 'Aucun véhicule' : 'لا مركبات')
+          }
+          description={
+            searchTerm
+              ? (fr ? 'Aucun résultat pour cette recherche.' : 'لا نتائج لهذا البحث.')
+              : (fr ? 'Ajoutez un véhicule pour commencer à louer.' : 'أضف مركبة للبدء.')
+          }
+          action={
+            !searchTerm && can('create') ? (
+              <Btn tone="primary" onClick={handleAddCar}>
+                <Plus size={16} /> {fr ? 'Nouveau véhicule' : 'مركبة جديدة'}
+              </Btn>
+            ) : undefined
+          }
+        />
       ) : (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredCars.map(car => (
-              <CarCard
-                key={car.id}
-                car={car}
-                lang={lang}
-                onDelete={handleDeleteCar}
-                onEdit={handleEditCar}
-                onViewDetails={handleViewDetails}
-                onHistory={handleHistory}
-                onExpenses={handleExpenses}
-                onReports={handleReports}
-                onStatusChange={handleStatusChange}
-                onEditCommission={isConsignmentCar(car) ? handleEditCommission : undefined}
-                activeReservationInfo={getActiveReservationInfo(car.id)}
-              />
-            ))}
-          </div>
-
-          {filteredCars.length === 0 && (
-            <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
-              <p className="text-gray-400 font-medium">
-                {activeTab === 'consignment'
-                  ? (lang === 'fr' ? 'Aucun véhicule en conciergerie.' : 'لا توجد مركبات بالوكالة.')
-                  : (lang === 'fr' ? 'Aucun véhicule trouvé.' : 'لم يتم العثور على مركبات.')}
-              </p>
-            </div>
-          )}
-        </>
+        <div className="fx-stagger grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3.5">
+          {filteredCars.map(car => (
+            <CarCard
+              key={car.id}
+              car={car}
+              lang={lang}
+              onDelete={handleDeleteCar}
+              onEdit={handleEditCar}
+              onViewDetails={handleViewDetails}
+              onHistory={handleHistory}
+              onExpenses={handleExpenses}
+              onReports={handleReports}
+              onStatusChange={handleStatusChange}
+              onEditCommission={isConsignmentCar(car) ? handleEditCommission : undefined}
+              activeReservationInfo={getActiveReservationInfo(car.id)}
+            />
+          ))}
+        </div>
       )}
 
       <CarModal

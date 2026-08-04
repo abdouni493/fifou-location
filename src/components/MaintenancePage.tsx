@@ -5,10 +5,15 @@ import { MaintenanceCard } from './MaintenanceCard';
 import { CarModal } from './CarModal';
 import { VehicleExpenseModal } from './VehicleExpenseModal';
 import { MaintenanceStatus, getMaintenanceStatus } from '../services/maintenanceService';
-import { motion, AnimatePresence } from 'motion/react';
-import { Search, Loader2, RefreshCw, Filter } from 'lucide-react';
+import { AnimatePresence } from 'motion/react';
+import { RefreshCw } from 'lucide-react';
 import { getCars, updateCar } from '../services/carService';
-import { addVehicleExpense, updateVehicleExpense, getVehicleExpenses } from '../services/expenseService';
+import { addVehicleExpense, getVehicleExpenses } from '../services/expenseService';
+import { useCan } from '../utils/permissions';
+import {
+  PageHeader, StatCard, StatGrid, Toolbar, SearchInput, Segmented, Btn,
+  EmptyState, LoadingState,
+} from './ui/fx';
 
 interface MaintenancePageProps {
   lang: Language;
@@ -22,6 +27,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
   user = null,
 }) => {
   const location = useLocation();
+  const can = useCan('maintenance');
   const [cars, setCars] = useState<Car[]>([]);
   const [maintenanceData, setMaintenanceData] = useState<MaintenanceStatus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -208,6 +214,26 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
     setIsExpenseModalOpen(true);
   };
 
+  /**
+   * Dépense libre pour un véhicule (type « Autres ».)
+   *
+   * Les quatre boutons ci-dessus couvrent l'entretien planifié. Tout le reste —
+   * pneus, carrosserie, lavage, pièce cassée — n'avait aucune porte d'entrée
+   * depuis cet écran : il fallait repasser par Dépenses et re-chercher la
+   * voiture. Ce bouton la pré-sélectionne.
+   */
+  const handleAutreClick = (car: Car) => {
+    setSelectedCar(car);
+    setSelectedExpenseType('autre');
+    setPrefilledExpense({
+      carId: car.id,
+      type: 'autre',
+      date: new Date().toISOString().split('T')[0],
+      currentMileage: car.mileage,
+    });
+    setIsExpenseModalOpen(true);
+  };
+
   const handleSaveExpense = async (expenseData: any) => {
     try {
       if (selectedCar) {
@@ -286,125 +312,125 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
     });
   });
 
-  return (
-    <div className="space-y-10">
-      {/* Header Section */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 bg-white p-8 rounded-2xl border border-saas-border shadow-sm">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-black text-saas-text-main tracking-tighter uppercase flex items-center gap-3">
-            🔧 {lang === 'fr' ? 'Maintenance' : 'الصيانة'}
-          </h1>
-          <p className="text-saas-primary-via font-bold text-[10px] uppercase tracking-[0.3em]">
-            {lang === 'fr' ? 'Suivi complet de la maintenance et des services' : 'المتابعة الشاملة للصيانة والخدمات'}
-          </p>
-        </div>
+  const fr = lang === 'fr';
 
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          <div className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-saas-text-muted group-focus-within:text-saas-primary-via transition-colors" size={18} />
-            <input
-              type="text"
-              placeholder={lang === 'fr' ? 'Rechercher un véhicule...' : 'بحث عن مركبة...'}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-12 pr-6 py-3.5 bg-saas-bg border border-saas-border rounded-xl outline-none focus:border-saas-primary-via w-full sm:w-80 transition-all font-medium text-sm shadow-sm"
-            />
-          </div>
-          <button
-            onClick={loadCarsData}
-            className="btn-saas-secondary px-6 py-3.5 group w-full sm:w-auto justify-center"
-            title={lang === 'fr' ? 'Actualiser' : 'تحديث'}
-          >
-            <RefreshCw size={20} className={`${loading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
-            <span className="font-bold uppercase tracking-widest text-xs">
-              {lang === 'fr' ? 'Actualiser' : 'تحديث'}
-            </span>
-          </button>
-        </div>
+  // Compteurs par gravité — calculés sur l'ensemble, pas sur le filtre courant :
+  // c'est une boussole, elle ne doit pas bouger quand on change de filtre.
+  const counters = React.useMemo(() => {
+    let critical = 0, warning = 0, ok = 0;
+    maintenanceData.forEach(item => {
+      const values = [
+        { v: item.vidange.kmRemaining, t: 1000, km: true },
+        { v: item.chaine.kmRemaining, t: 1000, km: true },
+        { v: item.assurance.daysRemaining, t: 30, km: false },
+        { v: item.controleTechnique.daysRemaining, t: 30, km: false },
+      ];
+      const worst = values.reduce<'critical' | 'warning' | 'ok'>((acc, x) => {
+        if (x.v === null || x.v === undefined) return acc;
+        const isCritical = x.km ? x.v <= 0 : x.v < 0;
+        const isWarning = x.v >= 0 && x.v <= x.t;
+        if (isCritical) return 'critical';
+        if (isWarning && acc !== 'critical') return 'warning';
+        return acc;
+      }, 'ok');
+      if (worst === 'critical') critical++;
+      else if (worst === 'warning') warning++;
+      else ok++;
+    });
+    return { critical, warning, ok };
+  }, [maintenanceData]);
+
+  return (
+    <div className="max-w-[92rem] mx-auto">
+      <PageHeader
+        icon="🔧"
+        eyebrow={fr ? 'Atelier' : 'الورشة'}
+        title={fr ? 'Maintenance' : 'الصيانة'}
+        subtitle={
+          fr
+            ? 'Vidange, chaîne, assurance et contrôle technique — échéances par véhicule.'
+            : 'تغيير الزيت والسلسلة والتأمين والفحص التقني.'
+        }
+        actions={
+          <Btn tone="steel" onClick={loadCarsData} title={fr ? 'Actualiser' : 'تحديث'}>
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">{fr ? 'Actualiser' : 'تحديث'}</span>
+          </Btn>
+        }
+      />
+
+      <div className="mb-5">
+        <StatGrid cols={4}>
+          <StatCard label={fr ? 'Véhicules suivis' : 'المركبات المتابعة'} value={maintenanceData.length} icon="🚗" tone="steel" />
+          <StatCard
+            label={fr ? 'Échéances dépassées' : 'مواعيد متجاوزة'}
+            value={counters.critical}
+            icon="🔴" tone={counters.critical > 0 ? 'red' : 'green'}
+            onClick={() => setFilterStatus(filterStatus === 'critical' ? 'all' : 'critical')}
+          />
+          <StatCard
+            label={fr ? 'À prévoir' : 'قريبًا'}
+            value={counters.warning}
+            icon="🟡" tone="amber"
+            onClick={() => setFilterStatus(filterStatus === 'warning' ? 'all' : 'warning')}
+          />
+          <StatCard
+            label={fr ? 'À jour' : 'محدّثة'}
+            value={counters.ok}
+            icon="🟢" tone="green"
+            onClick={() => setFilterStatus(filterStatus === 'success' ? 'all' : 'success')}
+          />
+        </StatGrid>
       </div>
 
-      {/* Filter Buttons */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-3 flex-wrap bg-white p-5 rounded-2xl border border-saas-border shadow-sm"
-      >
-        <span className="text-xs font-bold text-saas-text-muted uppercase tracking-widest">
-          {lang === 'fr' ? 'Filtrer:' : 'تصفية:'}
-        </span>
-        {(['all', 'critical', 'warning', 'success'] as const).map((status) => (
-          <motion.button
-            key={status}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setFilterStatus(status)}
-            className={`px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${
-              filterStatus === status
-                ? status === 'critical'
-                  ? 'bg-red-500/10 text-red-600 border-2 border-red-500 shadow-lg shadow-red-500/20'
-                  : status === 'warning'
-                  ? 'bg-amber-500/10 text-amber-600 border-2 border-amber-500 shadow-lg shadow-amber-500/20'
-                  : status === 'success'
-                  ? 'bg-green-500/10 text-green-600 border-2 border-green-500 shadow-lg shadow-green-500/20'
-                  : 'bg-saas-primary-via/10 text-saas-primary-via border-2 border-saas-primary-via shadow-lg shadow-saas-primary-via/20'
-                : 'bg-saas-bg text-saas-text-muted border-2 border-saas-border hover:border-saas-primary-via/50'
-            }`}
-          >
-            {status === 'all' && '🔄'}
-            {status === 'critical' && '🔴'}
-            {status === 'warning' && '🟡'}
-            {status === 'success' && '🟢'}
-            <span>
-              {status === 'all' && (lang === 'fr' ? 'Tous' : 'الكل')}
-              {status === 'critical' && (lang === 'fr' ? 'Critique' : 'حرج')}
-              {status === 'warning' && (lang === 'fr' ? 'Attention' : 'تنبيه')}
-              {status === 'success' && (lang === 'fr' ? 'Bon' : 'جيد')}
-            </span>
-          </motion.button>
-        ))}
-      </motion.div>
+      <Toolbar>
+        <SearchInput
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder={fr ? 'Marque, modèle, immatriculation…' : 'العلامة، الطراز، اللوحة…'}
+        />
+        <Segmented<'all' | 'critical' | 'warning' | 'success'>
+          value={filterStatus}
+          onChange={setFilterStatus}
+          options={[
+            { value: 'all', label: fr ? '🔄 Tous' : '🔄 الكل' },
+            { value: 'critical', label: fr ? '🔴 Critique' : '🔴 حرج' },
+            { value: 'warning', label: fr ? '🟡 Attention' : '🟡 تنبيه' },
+            { value: 'success', label: fr ? '🟢 Bon' : '🟢 جيد' },
+          ]}
+        />
+      </Toolbar>
 
-      {/* Content Grid */}
       {loading ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex items-center justify-center min-h-96 bg-white rounded-2xl border border-saas-border"
-        >
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="w-12 h-12 text-saas-primary-via animate-spin" />
-            <p className="text-saas-text-muted font-medium">
-              {lang === 'fr' ? 'Chargement des véhicules...' : 'جاري تحميل السيارات...'}
-            </p>
-          </div>
-        </motion.div>
+        <LoadingState label={fr ? 'Chargement des véhicules…' : 'جاري التحميل…'} rows={8} />
+      ) : filteredData.length === 0 ? (
+        <EmptyState
+          icon="🔧"
+          title={fr ? 'Aucun véhicule' : 'لا مركبات'}
+          description={
+            searchTerm || filterStatus !== 'all'
+              ? (fr ? 'Aucun résultat pour ces critères.' : 'لا نتائج.')
+              : (fr ? 'Ajoutez des véhicules pour suivre leur entretien.' : 'أضف مركبات لمتابعة صيانتها.')
+          }
+        />
       ) : (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            <AnimatePresence mode="popLayout">
-              {filteredData.map((maintenance) => (
-                <MaintenanceCard
-                  key={maintenance.car.id}
-                  maintenance={maintenance}
-                  lang={lang}
-                  onEditCar={handleEditCar}
-                  onVidangeClick={handleVidangeClick}
-                  onChaineClick={handleChaineClick}
-                  onAssuranceClick={handleAssuranceClick}
-                  onControleClick={handleControleClick}
-                />
-              ))}
-            </AnimatePresence>
-          </div>
-
-          {filteredData.length === 0 && (
-            <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
-              <p className="text-gray-400 font-medium">
-                {lang === 'fr' ? 'Aucun véhicule trouvé.' : 'لم يتم العثور على مركبات.'}
-              </p>
-            </div>
-          )}
-        </>
+        <div className="fx-stagger grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3.5">
+          <AnimatePresence mode="popLayout">
+            {filteredData.map((maintenance) => (
+              <MaintenanceCard
+                key={maintenance.car.id}
+                maintenance={maintenance}
+                lang={lang}
+                onEditCar={handleEditCar}
+                onVidangeClick={handleVidangeClick}
+                onChaineClick={handleChaineClick}
+                onAssuranceClick={handleAssuranceClick}
+                onControleClick={handleControleClick}
+                onAutreClick={can('expense') ? handleAutreClick : undefined}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
       )}
 
       {/* Car Edit Modal */}

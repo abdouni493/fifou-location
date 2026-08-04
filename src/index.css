@@ -1,7 +1,12 @@
 @import "tailwindcss";
-/* Peau sombre du back-office, activée par le bouton de la navbar
-   (<html data-admin-theme="carbon">). Générée : cf. scripts/gen-theme-carbon.cjs. */
+/* Peau sombre du back-office. Générée : cf. scripts/gen-theme-carbon.cjs.
+   Elle traduit les utilitaires clairs (bg-white, slate-*, pastilles pastel)
+   en équivalents sombres. */
 @import "./styles/theme-carbon.css";
+/* Peau de marque « carbone & sang » : dégradés noir + rouge, boutons,
+   cartes, sidebar, animations, responsive. Importée EN DERNIER — elle a le
+   dernier mot sur les deux feuilles précédentes. */
+@import "./styles/fifou-carbon.css";
 
 @theme {
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;

@@ -1,360 +1,343 @@
-import React, { useState, useEffect } from 'react';
-import { Worker, Language } from '../types';
-import { WorkerCard } from './WorkerCard';
-import { WorkerModal } from './WorkerModal';
-import { WorkerDetailsModal } from './WorkerDetailsModal';
-import { WorkerPaymentModal } from './WorkerPaymentModal';
-import { WorkerAdvanceModal } from './WorkerAdvanceModal';
-import { WorkerAbsenceModal } from './WorkerAbsenceModal';
-import { WorkerHistoryModal } from './WorkerHistoryModal';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence } from 'motion/react';
+import { Plus, Users, Wallet, AlertTriangle, KeyRound } from 'lucide-react';
+import { Language, Worker, WorkerRole, WorkerAdvance, WorkerAbsence, WorkerPayment } from '../types';
+import { WorkerService } from '../services/workerService';
+import { computePayroll } from '../utils/payroll';
+import { formatAmount } from '../utils/format';
+import { useCan } from '../utils/permissions';
 import { ConfirmModal } from './ConfirmModal';
-import { Plus, Search, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { DatabaseService } from '../services/DatabaseService';
+import { WorkerCard } from './equipe/WorkerCard';
+import { WorkerFormModal } from './equipe/WorkerFormModal';
+import { WorkerPermissionsModal } from './equipe/WorkerPermissionsModal';
+import { WorkerDetailsModal } from './equipe/WorkerDetailsModal';
+import { WorkerAdvancesModal, WorkerAbsencesModal, WorkerPaymentModal } from './equipe/WorkerMoneyModals';
+import {
+  PageHeader, StatCard, StatGrid, Toolbar, SearchInput, Segmented, Btn,
+  EmptyState, LoadingState, ErrorBanner, InfoBanner,
+} from './ui/fx';
 
-interface EquipePageProps {
-  lang: Language;
-}
+const DA = (n: number) => `${formatAmount(Math.round(n))} DA`;
 
-const INITIAL_WORKERS: Worker[] = [
-  {
-    id: '1',
-    fullName: 'Ahmed Boudjellal',
-    dateOfBirth: '1990-05-15',
-    phone: '+213 5 1234 5678',
-    email: 'ahmed.boudjellal@email.com',
-    address: 'Alger, Algeria',
-    profilePhoto: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop',
-    type: 'driver',
-    paymentType: 'daily',
-    baseSalary: 3500,
-    username: 'ahmed.boudj',
-    password: 'SecurePass123',
-    advances: [
-      { id: '1', amount: 500, date: '2026-02-15', note: 'Emergency' },
-      { id: '2', amount: 300, date: '2026-02-28', note: '' },
-    ],
-    absences: [
-      { id: '1', cost: 350, date: '2026-03-01', note: 'Sick leave' },
-      { id: '2', cost: 350, date: '2026-03-02', note: '' },
-    ],
-    payments: [],
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    fullName: 'Fatima Zahra',
-    dateOfBirth: '1988-03-20',
-    phone: '+213 5 9876 5432',
-    email: 'fatima.zahra@email.com',
-    address: 'Oran, Algeria',
-    profilePhoto: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop',
-    type: 'admin',
-    paymentType: 'monthly',
-    baseSalary: 45000,
-    username: 'fatima.zahra',
-    password: 'Admin@Pass456',
-    advances: [
-      { id: '1', amount: 2000, date: '2026-02-01', note: 'Salary advance' },
-    ],
-    absences: [],
-    payments: [],
-    createdAt: new Date().toISOString(),
-  },
-];
+type Filter = 'all' | 'due' | 'account' | 'noperm';
+type ModalKind = 'form' | 'permissions' | 'details' | 'advance' | 'absence' | 'payment' | null;
 
-export const EquipePage: React.FC<EquipePageProps> = ({ lang }) => {
+/**
+ * ÉQUIPE
+ * ──────
+ * Les employés en cartes, avec sur chacune les actions qui les concernent :
+ * consulter, modifier, supprimer, régler les permissions, et — pour les
+ * employés rémunérés — acompte, absence et paie.
+ *
+ * Le tri par défaut fait remonter ceux qui ont de l'argent en attente : c'est
+ * la seule chose qui appelle une décision quand on ouvre cet écran.
+ */
+export const EquipePage: React.FC<{ lang: Language }> = ({ lang }) => {
+  const fr = lang === 'fr';
+  const can = useCan('team');
+
   const [workers, setWorkers] = useState<Worker[]>([]);
+  const [roles, setRoles] = useState<WorkerRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
-  const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
-  const [activeModal, setActiveModal] = useState<'details' | 'payment' | 'advance' | 'absence' | 'history' | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; workerId: string | null }>({ isOpen: false, workerId: null });
 
-  // Load workers on component mount
-  useEffect(() => {
-    loadWorkers();
-  }, []);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
 
-  const loadWorkers = async () => {
+  const [modal, setModal] = useState<ModalKind>(null);
+  const [current, setCurrent] = useState<Worker | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Worker | null>(null);
+
+  // ─── Chargement ───────────────────────────────────────────────────────────
+  const load = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      const data = await DatabaseService.getWorkers();
-      setWorkers(data);
-    } catch (err) {
-      console.error('Error loading workers:', err);
-      setError('Erreur lors du chargement des travailleurs');
+      const [w, r] = await Promise.all([
+        WorkerService.getWorkers(),
+        WorkerService.getRoles().catch(() => []),
+      ]);
+      setWorkers(w);
+      setRoles(r);
+    } catch (err: any) {
+      console.error('[Équipe]', err);
+      setError(
+        /JWT|auth|PGRST301/i.test(err?.message ?? '')
+          ? (fr ? 'Session expirée. Reconnectez-vous.' : 'انتهت الجلسة.')
+          : (fr ? "Impossible de charger l'équipe." : 'تعذر تحميل الفريق.'),
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredWorkers = workers.filter(w =>
-    w.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    w.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
-  const handleSaveWorker = async (workerData: Partial<Worker>): Promise<void> => {
+  // ─── Statistiques d'en-tête ───────────────────────────────────────────────
+  const stats = useMemo(() => {
+    const payrolls = workers.map(w => ({ worker: w, p: computePayroll(w) }));
+    const paidStaff = payrolls.filter(x => x.p.paid);
+    return {
+      total: workers.length,
+      withAccount: workers.filter(w => w.accountEnabled).length,
+      withoutPerms: workers.filter(w => (w.permissions?.length ?? 0) === 0).length,
+      totalDue: paidStaff.reduce((s, x) => s + x.p.net, 0),
+      pendingAdvances: paidStaff.reduce((s, x) => s + x.p.advancesTotal, 0),
+      monthlyPayroll: paidStaff.reduce(
+        (s, x) => s + (x.p.mode === 'monthly' ? x.p.baseSalary : x.p.baseSalary * 26),
+        0,
+      ),
+    };
+  }, [workers]);
+
+  // ─── Filtrage + tri ───────────────────────────────────────────────────────
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return workers
+      .filter(w => {
+        if (q) {
+          const hay = `${w.fullName} ${w.email} ${w.phone} ${w.roleName ?? ''} ${w.username ?? ''}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        if (filter === 'due') return computePayroll(w).net > 0;
+        if (filter === 'account') return Boolean(w.accountEnabled);
+        if (filter === 'noperm') return (w.permissions?.length ?? 0) === 0;
+        return true;
+      })
+      // Ce qui réclame une décision passe devant.
+      .sort((a, b) => computePayroll(b).net - computePayroll(a).net);
+  }, [workers, search, filter]);
+
+  // ─── Mutations locales ────────────────────────────────────────────────────
+  const upsert = (w: Worker) =>
+    setWorkers(prev => {
+      const i = prev.findIndex(x => x.id === w.id);
+      if (i === -1) return [w, ...prev];
+      // Le service ne renvoie pas les relations : on garde celles déjà chargées.
+      const next = [...prev];
+      next[i] = { ...w, advances: prev[i].advances, absences: prev[i].absences, payments: prev[i].payments };
+      return next;
+    });
+
+  const patch = (id: string, fields: Partial<Worker>) =>
+    setWorkers(prev => prev.map(w => (w.id === id ? { ...w, ...fields } : w)));
+
+  const open = (kind: ModalKind, worker: Worker | null) => { setCurrent(worker); setModal(kind); };
+  const close = () => { setModal(null); setCurrent(null); };
+
+  const doDelete = async () => {
+    if (!confirmDelete) return;
     try {
-      if (editingWorker) {
-        // Edit existing
-        const updated = await DatabaseService.updateWorker(editingWorker.id, workerData);
-        setWorkers(workers.map(w => w.id === updated.id ? { ...updated, advances: w.advances, absences: w.absences, payments: w.payments } : w));
-      } else {
-        // Create new
-        const created = await DatabaseService.createWorker(workerData as Omit<Worker, 'id' | 'createdAt' | 'advances' | 'absences' | 'payments'>);
-        setWorkers(prev => [...prev, created]);
-      }
-      setIsModalOpen(false);
-      setEditingWorker(null);
-    } catch (err) {
-      console.error('Error saving worker:', err);
-      throw new Error('Erreur lors de l\'enregistrement');
+      await WorkerService.deleteWorker(confirmDelete.id);
+      setWorkers(prev => prev.filter(w => w.id !== confirmDelete.id));
+    } catch (err: any) {
+      setError(err?.message ?? String(err));
+    } finally {
+      setConfirmDelete(null);
     }
   };
 
-  const handleDeleteWorker = (workerId: string) => {
-    setDeleteConfirm({ isOpen: true, workerId });
-  };
-
-  // Open various modals for a selected worker
-  const handleOpenModal = (
-    worker: Worker,
-    modal: 'details' | 'payment' | 'advance' | 'absence' | 'history'
-  ) => {
-    setSelectedWorker(worker);
-    setActiveModal(modal);
-  };
-
-  const confirmDelete = async () => {
-    if (deleteConfirm.workerId) {
-      try {
-        await DatabaseService.deleteWorker(deleteConfirm.workerId);
-        setWorkers(workers.filter(w => w.id !== deleteConfirm.workerId));
-        setDeleteConfirm({ isOpen: false, workerId: null });
-      } catch (err) {
-        console.error('Error deleting worker:', err);
-        setError('Erreur lors de la suppression');
-      }
-    }
-  };
+  // Le worker courant, relu depuis l'état : les modales doivent voir les
+  // acomptes/absences ajoutés sans être remontées.
+  const live = current ? workers.find(w => w.id === current.id) ?? current : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-saas-bg via-saas-bg-light to-saas-bg p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <h1 className="text-4xl font-black uppercase tracking-tighter text-saas-text-main mb-2 flex items-center gap-3">
-            👥 {lang === 'fr' ? 'Équipe' : 'الفريق'}
-          </h1>
-          <p className="text-saas-text-muted text-sm font-bold uppercase tracking-widest">
-            {lang === 'fr' ? 'Gestion des travailleurs' : 'إدارة العمال'}
-          </p>
-        </motion.div>
+    <div className="max-w-[92rem] mx-auto">
+      <PageHeader
+        icon="🤝"
+        eyebrow={fr ? 'Ressources humaines' : 'الموارد البشرية'}
+        title={fr ? 'Équipe' : 'الفريق'}
+        subtitle={
+          fr
+            ? 'Fiches du personnel, permissions, acomptes, absences et paie.'
+            : 'بطاقات الموظفين والصلاحيات والسلف والغيابات والرواتب.'
+        }
+        actions={
+          can('create') ? (
+            <Btn tone="primary" onClick={() => open('form', null)}>
+              <Plus size={16} />
+              {fr ? 'Nouvel employé' : 'موظف جديد'}
+            </Btn>
+          ) : null
+        }
+      />
 
-        {/* Error Display */}
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <div className="text-red-500">⚠️</div>
-              <p className="text-red-700 font-medium">{error}</p>
-            </div>
-            {error.includes('Session expirée') && (
-              <button
-                onClick={() => window.location.reload()}
-                className="btn-saas-primary text-sm px-4 py-2"
-              >
-                {lang === 'fr' ? 'Se reconnecter' : 'إعادة الاتصال'}
-              </button>
-            )}
-          </motion.div>
-        )}
+      {error && <ErrorBanner message={error} onRetry={load} retryLabel={fr ? 'Réessayer' : 'إعادة'} />}
+      {!WorkerService.migrationApplied && (
+        <InfoBanner>
+          {fr
+            ? 'Les colonnes « rôle, permissions, date d’entrée, compte » ne sont pas encore dans la base. Exécutez migration_equipe_caisse.sql dans Supabase → SQL Editor pour activer ces fonctions. Le reste de l’écran fonctionne déjà.'
+            : 'أعمدة الدور والصلاحيات غير موجودة بعد. نفّذ migration_equipe_caisse.sql في Supabase.'}
+        </InfoBanner>
+      )}
 
-        {/* Controls */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="mb-8 flex flex-col sm:flex-row gap-4"
-        >
-          <div className="flex-1 relative">
-            <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-saas-text-muted" />
-            <input
-              type="text"
-              placeholder={lang === 'fr' ? 'Rechercher un travailleur...' : 'ابحث عن عامل...'}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-saas-border focus:outline-none focus:border-saas-primary-via focus:ring-2 focus:ring-saas-primary-via/20 transition-all"
-            />
-          </div>
-          <button
-            onClick={() => {
-              setEditingWorker(null);
-              setIsModalOpen(true);
-            }}
-            className="btn-saas-primary px-6 py-3 flex items-center justify-center gap-2 whitespace-nowrap"
-          >
-            <Plus size={20} />
-            {lang === 'fr' ? 'Ajouter' : 'إضافة'}
-          </button>
-        </motion.div>
-
-        {/* Workers Grid */}
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 size={32} className="animate-spin text-saas-primary-via" />
-            <span className="ml-3 text-saas-text-muted">
-              {lang === 'fr' ? 'Chargement des travailleurs...' : 'جاري تحميل العمال...'}
-            </span>
-          </div>
-        ) : error ? (
-          <div className="text-center py-12">
-            <p className="text-red-600 font-medium mb-4">⚠️ {error}</p>
-            <button
-              onClick={loadWorkers}
-              className="btn-saas-primary"
-            >
-              {lang === 'fr' ? 'Réessayer' : 'إعادة المحاولة'}
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-              <AnimatePresence>
-                {filteredWorkers.map((worker, index) => (
-                  <WorkerCard
-                    key={worker.id}
-                    worker={worker}
-                    index={index}
-                    lang={lang}
-                    onDetails={() => handleOpenModal(worker, 'details')}
-                    onPayment={() => handleOpenModal(worker, 'payment')}
-                    onAdvance={() => handleOpenModal(worker, 'advance')}
-                    onAbsence={() => handleOpenModal(worker, 'absence')}
-                    onHistory={() => handleOpenModal(worker, 'history')}
-                    onEdit={() => {
-                      setEditingWorker(worker);
-                      setIsModalOpen(true);
-                    }}
-                    onDelete={() => handleDeleteWorker(worker.id)}
-                  />
-                ))}
-              </AnimatePresence>
-            </div>
-
-            {filteredWorkers.length === 0 && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-center py-12"
-              >
-                <p className="text-saas-text-muted text-lg">
-                  {lang === 'fr' ? 'Aucun travailleur trouvé' : 'لم يتم العثور على عامل'}
-                </p>
-              </motion.div>
-            )}
-          </>
-        )}
+      {/* ── Chiffres clés ── */}
+      <div className="mb-5">
+        <StatGrid cols={4}>
+          <StatCard label={fr ? 'Employés' : 'الموظفون'} value={stats.total} icon={<Users size={15} />} tone="steel" />
+          <StatCard
+            label={fr ? 'Net à payer' : 'الصافي المستحق'}
+            value={DA(stats.totalDue)}
+            hint={fr ? 'Toutes périodes non réglées' : 'كل الفترات غير المدفوعة'}
+            icon={<Wallet size={15} />}
+            tone={stats.totalDue > 0 ? 'red' : 'green'}
+            onClick={() => setFilter(filter === 'due' ? 'all' : 'due')}
+          />
+          <StatCard
+            label={fr ? 'Acomptes en cours' : 'السلف الجارية'}
+            value={DA(stats.pendingAdvances)}
+            icon={<AlertTriangle size={15} />}
+            tone="amber"
+          />
+          <StatCard
+            label={fr ? 'Masse salariale / mois' : 'كتلة الأجور / شهر'}
+            value={DA(stats.monthlyPayroll)}
+            hint={fr ? 'Journaliers estimés à 26 j.' : 'اليوميون بـ 26 يومًا'}
+            icon="📊"
+            tone="steel"
+          />
+          <StatCard
+            label={fr ? 'Comptes de connexion' : 'حسابات الدخول'}
+            value={stats.withAccount}
+            hint={`${stats.total - stats.withAccount} ${fr ? 'sans compte' : 'بدون حساب'}`}
+            icon="🔐"
+            tone="steel"
+            onClick={() => setFilter(filter === 'account' ? 'all' : 'account')}
+          />
+          <StatCard
+            label={fr ? 'Sans permission' : 'بلا صلاحيات'}
+            value={stats.withoutPerms}
+            hint={fr ? 'Barre latérale vide' : 'شريط جانبي فارغ'}
+            icon={<KeyRound size={15} />}
+            tone={stats.withoutPerms > 0 ? 'amber' : 'green'}
+            onClick={() => setFilter(filter === 'noperm' ? 'all' : 'noperm')}
+          />
+        </StatGrid>
       </div>
 
-      {/* Modals */}
-      <WorkerModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingWorker(null);
-        }}
-        onSave={handleSaveWorker}
-        worker={editingWorker || undefined}
+      {/* ── Recherche et filtres ── */}
+      <Toolbar>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder={fr ? 'Rechercher un employé, un rôle, un téléphone…' : 'ابحث عن موظف…'}
+        />
+        <Segmented<Filter>
+          value={filter}
+          onChange={setFilter}
+          options={[
+            { value: 'all', label: fr ? 'Tous' : 'الكل', badge: workers.length },
+            { value: 'due', label: fr ? '💰 À payer' : '💰 مستحق' },
+            { value: 'account', label: fr ? '🔐 Connectés' : '🔐 حسابات' },
+            { value: 'noperm', label: fr ? '🔑 Sans droits' : '🔑 بلا صلاحيات' },
+          ]}
+        />
+      </Toolbar>
+
+      {/* ── Cartes ── */}
+      {loading ? (
+        <LoadingState label={fr ? 'Chargement de l’équipe…' : 'جاري التحميل…'} rows={6} />
+      ) : visible.length === 0 ? (
+        <EmptyState
+          icon="🤝"
+          title={
+            workers.length === 0
+              ? (fr ? 'Aucun employé' : 'لا موظفين')
+              : (fr ? 'Aucun résultat' : 'لا نتائج')
+          }
+          description={
+            workers.length === 0
+              ? (fr ? 'Créez votre premier employé pour lui ouvrir un accès et suivre sa paie.' : 'أنشئ أول موظف.')
+              : (fr ? 'Modifiez votre recherche ou changez de filtre.' : 'غيّر البحث أو الفلتر.')
+          }
+          action={
+            workers.length === 0 && can('create') ? (
+              <Btn tone="primary" onClick={() => open('form', null)}>
+                <Plus size={16} />
+                {fr ? 'Nouvel employé' : 'موظف جديد'}
+              </Btn>
+            ) : undefined
+          }
+        />
+      ) : (
+        <div className="fx-stagger grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3.5">
+          <AnimatePresence mode="popLayout">
+            {visible.map(w => (
+              <WorkerCard
+                key={w.id}
+                worker={w}
+                lang={lang}
+                can={can}
+                onView={() => open('details', w)}
+                onEdit={() => open('form', w)}
+                onDelete={() => setConfirmDelete(w)}
+                onPermissions={() => open('permissions', w)}
+                onAdvance={() => open('advance', w)}
+                onAbsence={() => open('absence', w)}
+                onPayment={() => open('payment', w)}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* ── Modales ── */}
+      <WorkerFormModal
+        open={modal === 'form'}
+        onClose={close}
+        worker={modal === 'form' ? current : null}
+        roles={roles}
+        onRoleCreated={r => setRoles(prev => [...prev, r].sort((a, b) => a.name.localeCompare(b.name)))}
+        onSaved={upsert}
         lang={lang}
       />
 
-      {selectedWorker && (
-        <>
-          <WorkerDetailsModal
-            isOpen={activeModal === 'details'}
-            onClose={() => setActiveModal(null)}
-            worker={selectedWorker}
-            lang={lang}
-          />
+      <WorkerPermissionsModal
+        open={modal === 'permissions'}
+        onClose={close}
+        worker={live}
+        onSaved={(id, keys) => patch(id, { permissions: keys })}
+        lang={lang}
+      />
 
-          <WorkerPaymentModal
-            isOpen={activeModal === 'payment'}
-            onClose={() => setActiveModal(null)}
-            worker={selectedWorker}
-            lang={lang}
-            onCreatePayment={(payment) => {
-              setWorkers(workers.map(w =>
-                w.id === selectedWorker.id
-                  ? { ...w, payments: [...w.payments, payment], advances: [], absences: [] }
-                  : w
-              ));
-              setActiveModal(null);
-            }}
-          />
+      <WorkerDetailsModal open={modal === 'details'} onClose={close} worker={live} lang={lang} />
 
-          <WorkerAdvanceModal
-            isOpen={activeModal === 'advance'}
-            onClose={() => setActiveModal(null)}
-            worker={selectedWorker}
-            onAddAdvance={(advance) => {
-              setWorkers(workers.map(w =>
-                w.id === selectedWorker.id
-                  ? { ...w, advances: [...w.advances, advance] }
-                  : w
-              ));
-              setActiveModal(null);
-            }}
-            lang={lang}
-          />
+      <WorkerAdvancesModal
+        open={modal === 'advance'}
+        onClose={close}
+        worker={live}
+        lang={lang}
+        onChange={(id, advances: WorkerAdvance[]) => patch(id, { advances })}
+      />
 
-          <WorkerAbsenceModal
-            isOpen={activeModal === 'absence'}
-            onClose={() => setActiveModal(null)}
-            worker={selectedWorker}
-            onAddAbsence={(absence) => {
-              setWorkers(workers.map(w =>
-                w.id === selectedWorker.id
-                  ? { ...w, absences: [...w.absences, absence] }
-                  : w
-              ));
-              setActiveModal(null);
-            }}
-            lang={lang}
-          />
+      <WorkerAbsencesModal
+        open={modal === 'absence'}
+        onClose={close}
+        worker={live}
+        lang={lang}
+        onChange={(id, absences: WorkerAbsence[]) => patch(id, { absences })}
+      />
 
-          <WorkerHistoryModal
-            isOpen={activeModal === 'history'}
-            onClose={() => setActiveModal(null)}
-            worker={selectedWorker}
-            lang={lang}
-          />
-        </>
-      )}
+      <WorkerPaymentModal
+        open={modal === 'payment'}
+        onClose={close}
+        worker={live}
+        lang={lang}
+        onPaid={(id, payment: WorkerPayment) =>
+          setWorkers(prev => prev.map(w => (w.id === id ? { ...w, payments: [...(w.payments ?? []), payment] } : w)))
+        }
+      />
 
       <ConfirmModal
-        isOpen={deleteConfirm.isOpen}
-        title={lang === 'fr' ? 'Supprimer le travailleur' : 'حذف العامل'}
+        isOpen={Boolean(confirmDelete)}
+        title={fr ? "Supprimer l'employé" : 'حذف الموظف'}
         message={
-          deleteConfirm.workerId
-            ? `${lang === 'fr' ? 'Êtes-vous sûr de vouloir supprimer' : 'هل أنت متأكد من حذف'} ${workers.find(w => w.id === deleteConfirm.workerId)?.fullName} ? ${lang === 'fr' ? 'Cette action est irréversible.' : 'هذا الإجراء لا يمكن التراجع عنه.'}`
-            : lang === 'fr'
-            ? 'Êtes-vous sûr de vouloir supprimer ce travailleur ? Cette action est irréversible.'
-            : 'هل أنت متأكد من حذف هذا العامل؟ هذا الإجراء لا يمكن التراجع عنه.'
+          fr
+            ? `Supprimer ${confirmDelete?.fullName} ? Ses acomptes, absences et paiements seront perdus. Cette action est irréversible.`
+            : `حذف ${confirmDelete?.fullName}؟ هذا الإجراء لا يمكن التراجع عنه.`
         }
-        onConfirm={confirmDelete}
-        onClose={() => setDeleteConfirm({ isOpen: false, workerId: null })}
+        onConfirm={doDelete}
+        onClose={() => setConfirmDelete(null)}
         lang={lang}
       />
     </div>

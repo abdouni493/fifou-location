@@ -5,6 +5,11 @@ import { Calendar, Users, Car as CarIcon, Plus, Search, Filter, Eye, Edit, Trash
 import { DatabaseService } from '../services/DatabaseService';
 import { ReservationsService } from '../services/ReservationsService';
 import { DEFAULT_EUR_RATE, dzdToEur, formatMoney } from '../utils/currency';
+import { useCan } from '../utils/permissions';
+import {
+  PageHeader, StatCard, StatGrid, SearchInput, Segmented, Badge, ActionBtn,
+  EmptyState, LoadingState,
+} from './ui/fx';
 
 interface WebsiteOrdersProps {
   lang: Language;
@@ -45,10 +50,19 @@ const statusBadge = (status: string, lang: Language): { className: string; label
   if (ACCEPTED_STATUSES.includes(status)) {
     return { className: 'bg-green-100 text-green-800', label: lang === 'fr' ? '✔️ Acceptée' : '✔️ مقبولة' };
   }
-  return { className: 'bg-yellow-100 text-yellow-800', label: lang === 'fr' ? '🆕 Nouvelle commande' : '🆕 طلب جديد' };
+  return { className: 'bg-yellow-100 text-yellow-800', label: lang === 'fr' ? '🆕 Nouvelle réservation' : '🆕 حجز جديد' };
+};
+
+/** Teinte du badge, dans le vocabulaire du kit fx. */
+const statusTone = (status: string): 'red' | 'green' | 'amber' | 'steel' => {
+  if (status === 'cancelled') return 'red';
+  if (status === 'completed') return 'steel';
+  if (ACCEPTED_STATUSES.includes(status)) return 'green';
+  return 'amber';
 };
 
 export const WebsiteOrders: React.FC<WebsiteOrdersProps> = ({ lang, onOrdersChanged }) => {
+  const can = useCan('web-orders');
   const [orders, setOrders] = useState<WebsiteOrder[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   // Par défaut : les commandes qui attendent une décision de l'agence.
@@ -183,151 +197,113 @@ export const WebsiteOrders: React.FC<WebsiteOrdersProps> = ({ lang, onOrdersChan
   };
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900">
-            🛒 {lang === 'fr' ? 'Commandes Website' : 'طلبات الموقع'}
-          </h1>
-          <p className="text-slate-600 mt-1">
-            {lang === 'fr' ? 'Gérer les commandes reçues depuis le site web' : 'إدارة الطلبات المستلمة من الموقع'}
-          </p>
-        </div>
-
-        {/* Search */}
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
-          <input
-            type="text"
-            placeholder={lang === 'fr' ? 'Rechercher...' : 'البحث...'}
+    <div className="max-w-[92rem] mx-auto">
+      <PageHeader
+        icon="🛒"
+        eyebrow={lang === 'fr' ? 'Site public' : 'الموقع العام'}
+        title={lang === 'fr' ? 'Website réservations' : 'حجوزات الموقع'}
+        subtitle={
+          lang === 'fr'
+            ? 'Réservations reçues depuis le site — à accepter ou à refuser.'
+            : 'الحجوزات الواردة من الموقع — للقبول أو الرفض.'
+        }
+      >
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          <SearchInput
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full ps-10 pe-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onChange={setSearchQuery}
+            placeholder={lang === 'fr' ? 'Client, véhicule, n° de réservation…' : 'عميل، مركبة، رقم الحجز…'}
+          />
+          <Segmented<'website_reservation' | 'accepted' | 'completed' | 'cancelled' | 'all'>
+            value={filterStatus}
+            onChange={setFilterStatus}
+            options={[
+              { value: 'website_reservation', label: lang === 'fr' ? 'Nouvelles' : 'جديدة', badge: tabCount('website_reservation') },
+              { value: 'accepted', label: lang === 'fr' ? 'Acceptées' : 'مقبولة', badge: tabCount('accepted') },
+              { value: 'completed', label: lang === 'fr' ? 'Terminées' : 'منتهية', badge: tabCount('completed') },
+              { value: 'cancelled', label: lang === 'fr' ? 'Annulées' : 'ملغاة', badge: tabCount('cancelled') },
+              { value: 'all', label: lang === 'fr' ? 'Toutes' : 'الكل', badge: orders.length },
+            ]}
           />
         </div>
+      </PageHeader>
+
+      {/* ── Chiffres clés ── */}
+      <div className="mb-5">
+        <StatGrid cols={4}>
+          <StatCard
+            label={lang === 'fr' ? 'À traiter' : 'للمعالجة'}
+            value={tabCount('website_reservation')}
+            hint={lang === 'fr' ? 'En attente de décision' : 'بانتظار القرار'}
+            icon={<Clock size={15} />}
+            tone={tabCount('website_reservation') > 0 ? 'red' : 'green'}
+            onClick={() => setFilterStatus('website_reservation')}
+          />
+          <StatCard
+            label={lang === 'fr' ? 'Acceptées' : 'مقبولة'}
+            value={tabCount('accepted')}
+            icon={<CheckCircle size={15} />}
+            tone="green"
+            onClick={() => setFilterStatus('accepted')}
+          />
+          <StatCard
+            label={lang === 'fr' ? 'Annulées' : 'ملغاة'}
+            value={tabCount('cancelled')}
+            icon={<XCircle size={15} />}
+            tone="amber"
+            onClick={() => setFilterStatus('cancelled')}
+          />
+          <StatCard
+            label={lang === 'fr' ? 'Total reçu' : 'المجموع'}
+            value={orders.length}
+            icon="🌐"
+            tone="steel"
+            onClick={() => setFilterStatus('all')}
+          />
+        </StatGrid>
       </div>
 
-      {/* Onglets — toutes les commandes du site restent consultables ici */}
-      <div className="flex flex-wrap gap-2 p-1.5 bg-white border border-slate-200 rounded-2xl shadow-sm">
-        {([
-          { key: 'website_reservation' as const, label: lang === 'fr' ? 'Nouvelles'  : 'جديدة' },
-          { key: 'accepted'            as const, label: lang === 'fr' ? 'Acceptées'  : 'مقبولة' },
-          { key: 'completed'           as const, label: lang === 'fr' ? 'Terminées'  : 'منتهية' },
-          { key: 'cancelled'           as const, label: lang === 'fr' ? 'Annulées'   : 'ملغاة' },
-          { key: 'all'                 as const, label: lang === 'fr' ? 'Toutes'     : 'الكل' },
-        ]).map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setFilterStatus(tab.key)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-              filterStatus === tab.key
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            {tab.label}
-            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${
-              filterStatus === tab.key ? 'bg-white/20' : 'bg-slate-100 text-slate-600'
-            }`}>
-              {tabCount(tab.key)}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-r from-yellow-50 to-amber-50 rounded-2xl p-6 border border-yellow-200">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
-              <Clock className="w-6 h-6 text-yellow-600" />
-            </div>
-            <div>
-              <p className="text-sm text-yellow-600 font-bold">{lang === 'fr' ? 'Nouvelles (à traiter)' : 'جديدة (للمعالجة)'}</p>
-              <p className="text-2xl font-black text-yellow-900">{tabCount('website_reservation')}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-200">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm text-green-600 font-bold">{lang === 'fr' ? 'Acceptées' : 'مقبولة'}</p>
-              <p className="text-2xl font-black text-green-900">{tabCount('accepted')}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-r from-red-50 to-pink-50 rounded-2xl p-6 border border-red-200">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-              <XCircle className="w-6 h-6 text-red-600" />
-            </div>
-            <div>
-              <p className="text-sm text-red-600 font-bold">{lang === 'fr' ? 'Annulées' : 'ملغاة'}</p>
-              <p className="text-2xl font-black text-red-900">{tabCount('cancelled')}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-2xl p-6 border border-indigo-200">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
-              <CheckCircle className="w-6 h-6 text-indigo-600" />
-            </div>
-            <div>
-              <p className="text-sm text-indigo-600 font-bold">{lang === 'fr' ? 'Total' : 'المجموع'}</p>
-              <p className="text-2xl font-black text-indigo-900">{orders.length}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Orders Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {isLoading ? (
-          // Loading state
-          <div className="col-span-full flex flex-col items-center justify-center py-12">
-            <Loader className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-            <p className="text-slate-600 font-bold">{lang === 'fr' ? 'Chargement des commandes...' : 'جاري تحميل الطلبات...'}</p>
-          </div>
-        ) : filteredOrders.length === 0 ? (
-          // Empty state
-          <div className="col-span-full flex flex-col items-center justify-center py-12">
-            <div className="text-6xl mb-4">📭</div>
-            <p className="text-slate-600 font-bold text-center">
-              {lang === 'fr' 
-                ? 'Aucune commande trouvée' 
-                : 'لم يتم العثور على أي طلبات'}
-            </p>
-            <p className="text-slate-500 text-sm mt-2">
-              {lang === 'fr'
-                ? 'Les commandes du site web apparaîtront ici'
-                : 'ستظهر طلبات الموقع الإلكتروني هنا'}
-            </p>
-          </div>
-        ) : (
-          filteredOrders.map((order) => (
+      {/* ── Cartes de réservation ── */}
+      {isLoading ? (
+        <LoadingState label={lang === 'fr' ? 'Chargement des réservations…' : 'جاري التحميل…'} rows={6} />
+      ) : filteredOrders.length === 0 ? (
+        <EmptyState
+          icon="📭"
+          title={lang === 'fr' ? 'Aucune réservation' : 'لا حجوزات'}
+          description={
+            lang === 'fr'
+              ? 'Les réservations passées depuis le site web apparaîtront ici.'
+              : 'ستظهر حجوزات الموقع هنا.'
+          }
+        />
+      ) : (
+      <div className="fx-stagger grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5">
+        {filteredOrders.map((order) => (
           <motion.div
             key={order.id}
-            initial={{ opacity: 0, y: 20 }}
+            layout
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-2xl shadow-lg border border-slate-200 flex flex-col relative"
+            className="fx-card flex flex-col relative overflow-hidden"
           >
             {/* Car Image */}
-            <div className="relative h-48 overflow-hidden rounded-t-2xl">
+            <div className="relative h-44 overflow-hidden shrink-0">
               <img
                 src={order.car?.image_url || order.car?.images?.[0] || 'https://picsum.photos/seed/car/400/300'}
                 alt={`${order.car?.brand} ${order.car?.model}`}
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
+                loading="lazy"
+              />
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{ background: 'linear-gradient(180deg, rgba(8,8,11,0.2) 0%, transparent 42%, rgba(8,8,11,0.9) 100%)' }}
               />
               {/* Client Avatar - Circular with Border */}
-              <div className="absolute top-4 right-4 w-16 h-16 rounded-full border-4 border-white overflow-hidden shadow-lg bg-slate-100 flex items-center justify-center">
+              <div
+                className="absolute top-3 end-3 w-14 h-14 rounded-full overflow-hidden flex items-center justify-center"
+                style={{ border: '2px solid var(--fx-red-500)', background: 'var(--fx-black-300)' }}
+              >
                 {order.step2?.photo ? (
                   <img
                     src={order.step2.photo}
@@ -387,107 +363,99 @@ export const WebsiteOrders: React.FC<WebsiteOrdersProps> = ({ lang, onOrdersChan
                 </div>
                 
                 {/* Pricing Section */}
-                <div className="mt-3 p-4 bg-gradient-to-r from-white to-slate-50 rounded-xl border border-slate-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-xs text-slate-500">{lang === 'fr' ? 'Total Réservation' : 'الإجمالي'}</div>
+                <div className="mt-3 fx-well p-3.5">
+                  <div className="flex items-end justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-black uppercase tracking-[0.13em]" style={{ color: 'var(--fx-ink-mute)' }}>
+                        {lang === 'fr' ? 'Total réservation' : 'الإجمالي'}
+                      </div>
                       {order.paymentCurrency === 'EUR' ? (
                         <>
-                          <div className="text-xl font-black text-slate-900">
+                          <div className="text-xl font-black tabular-nums" style={{ color: 'var(--fx-red-200)' }}>
                             {formatMoney(order.totalPriceEur ?? dzdToEur(order.totalPrice, order.euroRate || DEFAULT_EUR_RATE), 'EUR')}
                           </div>
-                          <div className="text-xs text-slate-500">≈ {formatMoney(order.totalPrice, 'DZD')}</div>
+                          <div className="text-[11px]" style={{ color: 'var(--fx-ink-dim)' }}>
+                            ≈ {formatMoney(order.totalPrice, 'DZD')}
+                          </div>
                         </>
                       ) : (
-                        <div className="text-xl font-black text-slate-900">{formatMoney(order.totalPrice, 'DZD')}</div>
+                        <div className="text-xl font-black tabular-nums" style={{ color: 'var(--fx-red-200)' }}>
+                          {formatMoney(order.totalPrice, 'DZD')}
+                        </div>
                       )}
                     </div>
-                    <div className="text-right space-y-1">
-                      <div className="text-xs text-slate-500">{lang === 'fr' ? 'Statut' : 'الحالة'}</div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${statusBadge(order.status, lang).className}`}>
-                        {statusBadge(order.status, lang).label}
-                      </span>
+                    <div className="text-end space-y-1.5 shrink-0">
+                      <Badge tone={statusTone(order.status)}>{statusBadge(order.status, lang).label}</Badge>
                       <div>
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          order.paymentCurrency === 'EUR' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                        <Badge tone={order.paymentCurrency === 'EUR' ? 'steel' : 'green'}>
                           {order.paymentCurrency === 'EUR' ? '💶 EUR' : '💵 DZD'}
-                        </span>
+                        </Badge>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Actions - simplified car card style buttons */}
-              <div className="grid grid-cols-4 gap-2 mb-3">
-                <button
-                  onClick={() => handleViewDetails(order)}
-                  disabled={isProcessing === order.id}
-                  className="p-2.5 rounded-xl bg-saas-bg hover:bg-saas-secondary-start/10 text-saas-text-muted transition-all hover:scale-105 flex flex-col items-center gap-1 border border-saas-border hover:border-saas-secondary-start/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={lang === 'fr' ? 'Détails' : 'التفاصيل'}
-                >
-                  <span className="text-lg">👁️</span>
-                  <span className="text-[8px] uppercase font-bold">{lang === 'fr' ? 'Détails' : 'تفاصيل'}</span>
-                </button>
+              {/* ── Actions ── */}
+              <div className="mt-auto grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                {can('view') && (
+                  <ActionBtn
+                    icon={<Eye size={13} />}
+                    label={lang === 'fr' ? 'Détails' : 'تفاصيل'}
+                    showLabel
+                    className="flex-col !gap-0.5 py-2"
+                    disabled={isProcessing === order.id}
+                    onClick={() => handleViewDetails(order)}
+                  />
+                )}
 
-                <button
-                  onClick={() => handleConfirmOrder(order.id)}
-                  disabled={order.status !== 'website_reservation' || isProcessing === order.id}
-                  className={`p-2.5 rounded-xl transition-all flex flex-col items-center gap-1 border ${
-                    order.status === 'website_reservation' && isProcessing !== order.id
-                      ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white border-transparent'
-                      : 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-                  }`}
-                  title={lang === 'fr' ? 'Accepter' : 'قبول'}
-                >
-                  {isProcessing === order.id ? (
-                    <Loader className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <span className="text-lg">✅</span>
-                      <span className="text-[8px] uppercase font-bold">{lang === 'fr' ? 'Accepter' : 'قبول'}</span>
-                    </>
-                  )}
-                </button>
+                {can('accept') && (
+                  <ActionBtn
+                    icon={isProcessing === order.id ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle size={13} />}
+                    label={lang === 'fr' ? 'Accepter' : 'قبول'}
+                    showLabel
+                    tone="success"
+                    className="flex-col !gap-0.5 py-2"
+                    disabled={order.status !== 'website_reservation' || isProcessing === order.id}
+                    onClick={() => handleConfirmOrder(order.id)}
+                  />
+                )}
 
-                <button
-                  onClick={() => handleCancelOrder(order.id)}
-                  disabled={order.status !== 'website_reservation' || isProcessing === order.id}
-                  className={`p-2.5 rounded-xl transition-all flex flex-col items-center gap-1 border ${
-                    order.status === 'website_reservation' && isProcessing !== order.id
-                      ? 'bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-transparent'
-                      : 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-                  }`}
-                  title={lang === 'fr' ? 'Annuler' : 'إلغاء'}
-                >
-                  {isProcessing === order.id ? (
-                    <Loader className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <span className="text-lg">❌</span>
-                      <span className="text-[8px] uppercase font-bold">{lang === 'fr' ? 'Annuler' : 'إلغاء'}</span>
-                    </>
-                  )}
-                </button>
+                {can('reject') && (
+                  <ActionBtn
+                    icon={isProcessing === order.id ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <XCircle size={13} />}
+                    label={lang === 'fr' ? 'Refuser' : 'رفض'}
+                    showLabel
+                    tone="warning"
+                    className="flex-col !gap-0.5 py-2"
+                    disabled={order.status !== 'website_reservation' || isProcessing === order.id}
+                    onClick={() => handleCancelOrder(order.id)}
+                  />
+                )}
 
-                {/* Une commande acceptée ou terminée est une réservation à part entière :
-                    la supprimer d'ici effacerait son historique et sa comptabilité. */}
-                <button
-                  onClick={() => handleDeleteOrder(order.id)}
-                  disabled={!isDeletable(order.status) || isProcessing === order.id}
-                  className="p-2.5 rounded-xl bg-saas-danger-start/5 hover:bg-saas-danger-start hover:text-white text-saas-danger-start transition-all hover:scale-105 flex flex-col items-center gap-1 border border-saas-danger-start/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-saas-danger-start/5 disabled:hover:text-saas-danger-start disabled:hover:scale-100"
-                  title={isDeletable(order.status)
-                    ? (lang === 'fr' ? 'Supprimer' : 'حذف')
-                    : (lang === 'fr' ? 'Impossible : la commande a été acceptée' : 'غير ممكن: تم قبول الطلب')}
-                >
-                  <span className="text-lg">🗑️</span>
-                </button>
+                {/* Une réservation acceptée ou terminée est une location à part
+                    entière : la supprimer d'ici effacerait son historique. */}
+                {can('delete') && (
+                  <ActionBtn
+                    icon={<Trash2 size={13} />}
+                    label={
+                      isDeletable(order.status)
+                        ? (lang === 'fr' ? 'Supprimer' : 'حذف')
+                        : (lang === 'fr' ? 'Impossible : réservation acceptée' : 'غير ممكن: تم القبول')
+                    }
+                    showLabel
+                    tone="danger"
+                    className="flex-col !gap-0.5 py-2"
+                    disabled={!isDeletable(order.status) || isProcessing === order.id}
+                    onClick={() => handleDeleteOrder(order.id)}
+                  />
+                )}
               </div>
             </div>
           </motion.div>
-        ))
-        )}
+        ))}
       </div>
+      )}
 
       {/* Order Details Modal */}
       <AnimatePresence>
@@ -496,14 +464,14 @@ export const WebsiteOrders: React.FC<WebsiteOrdersProps> = ({ lang, onOrdersChan
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            className="fx-overlay"
             onClick={() => setShowOrderDetails(false)}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              className="fx-modal sm:max-w-4xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6">
@@ -816,13 +784,13 @@ export const WebsiteOrders: React.FC<WebsiteOrdersProps> = ({ lang, onOrdersChan
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            className="fx-overlay"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
+              className="fx-modal sm:max-w-md p-6"
             >
               <div className="text-center">
                 <div className="text-6xl mb-4">⚠️</div>

@@ -6,7 +6,6 @@ import { Navbar } from './components/Navbar';
 import { Login } from './components/Login';
 import { CarsPage } from './components/CarsPage';
 import { MaintenancePage } from './components/MaintenancePage';
-import { AgenciesPage } from './components/AgenciesPage';
 import { ClientsPage } from './components/ClientsPage';
 import { EquipePage } from './components/EquipePage';
 import { ExpensesPage } from './components/ExpensesPage';
@@ -19,6 +18,7 @@ import { Website } from './components/Website';
 import { DashboardPage } from './components/DashboardPage';
 import ReportsPage from './components/ReportsPage';
 import { CarGainsPage } from './components/CarGainsPage';
+import { CaissePage } from './components/CaissePage';
 import { ReservationsPage } from './components/ReservationsPage';
 import { Language, User, UserRole, Car, Agency } from './types';
 import { supabase, supabaseConfigured } from './supabase';
@@ -27,6 +27,7 @@ import { DatabaseService } from './services/DatabaseService';
 import { setupErrorInterceptor } from './utils/errorInterceptor';
 import { DebugAuth } from './utils/debugAuth';
 import { sessionService } from './utils/sessionService';
+import { PermissionsProvider, usePermissions } from './utils/permissions';
 
 // Initialize global error interceptor on load
 setupErrorInterceptor();
@@ -37,14 +38,21 @@ if (typeof window !== 'undefined') {
 }
 
 const LoadingScreen = () => (
-  <div className="min-h-screen flex items-center justify-center bg-saas-bg">
+  <div className="min-h-screen flex items-center justify-center px-6">
     <div className="text-center">
       <motion.div
         animate={{ rotate: 360 }}
         transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-        className="w-12 h-12 border-4 border-saas-primary-via border-t-saas-primary-start rounded-full mx-auto mb-4"
+        className="w-12 h-12 rounded-full mx-auto mb-4"
+        style={{
+          border: '3px solid rgba(255,255,255,0.08)',
+          borderTopColor: 'var(--fx-red-400)',
+          boxShadow: '0 0 24px -6px rgba(200,16,46,0.7)',
+        }}
       />
-      <p className="text-saas-text-muted">Chargement...</p>
+      <p className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--fx-ink-mute)' }}>
+        Chargement…
+      </p>
     </div>
   </div>
 );
@@ -78,8 +86,39 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   maintenanceAlertsCount, webOrdersCount, cars,
 }) => {
   const activeItem = SIDEBAR_ITEMS.find(item => item.id === activeTab) || SIDEBAR_ITEMS[0];
+  const { canPage, isAdmin, loading: permsLoading } = usePermissions();
+
+  /**
+   * Un employé qui atteint une interface fermée (URL tapée à la main, lien
+   * gardé en favori) ne doit pas voir un écran vide : on le renvoie sur la
+   * première interface qui lui est ouverte.
+   */
+  useEffect(() => {
+    if (isAdmin || permsLoading) return;
+    if (canPage(activeTab)) return;
+
+    const firstAllowed = SIDEBAR_ITEMS.find(i => canPage(i.id));
+    if (firstAllowed && firstAllowed.id !== activeTab) onTabChange(firstAllowed.id);
+  }, [activeTab, canPage, isAdmin, permsLoading, onTabChange]);
 
   const renderContent = () => {
+    // Interface non autorisée : message net, pas de page fantôme.
+    if (!isAdmin && !permsLoading && !canPage(activeTab)) {
+      return (
+        <div className="fx-card p-8 sm:p-12 text-center max-w-lg mx-auto">
+          <div className="text-5xl mb-4">🔒</div>
+          <h2 className="fx-title text-xl mb-2">
+            {lang === 'fr' ? 'Accès non autorisé' : 'وصول غير مصرح به'}
+          </h2>
+          <p className="text-sm" style={{ color: 'var(--fx-ink-mute)' }}>
+            {lang === 'fr'
+              ? "Cette interface ne fait pas partie de vos permissions. Contactez votre administrateur."
+              : 'هذه الواجهة ليست ضمن صلاحياتك. اتصل بالمسؤول.'}
+          </p>
+        </div>
+      );
+    }
+
     switch (activeTab) {
       case 'dashboard':
         return <DashboardPage lang={lang} isAuthLoading={isAuthLoading} user={user} />;
@@ -87,12 +126,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         return <PlannerPage lang={lang} isAuthLoading={isAuthLoading} user={user} />;
       case 'car-gains':
         return <CarGainsPage lang={lang} />;
+      case 'caisse':
+        return <CaissePage lang={lang} user={user} />;
       case 'vehicles':
         return <CarsPage lang={lang} isAuthLoading={isAuthLoading} user={user} />;
       case 'maintenance':
         return <MaintenancePage lang={lang} isAuthLoading={isAuthLoading} user={user} />;
-      case 'agencies':
-        return <AgenciesPage lang={lang} />;
       case 'clients':
         return <ClientsPage lang={lang} isAuthLoading={isAuthLoading} user={user} />;
       case 'team':
@@ -113,50 +152,23 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         return user ? <ConfigPage lang={lang} user={user} /> : null;
       default:
         return (
-          <div className="space-y-8">
-            <div className="flex flex-col gap-2">
-              <h2 className="text-3xl font-black text-saas-text-main uppercase tracking-tighter">
-                {activeItem.icon} {activeItem.label[lang]}
-              </h2>
-              <p className="text-saas-text-muted font-bold uppercase text-[10px] tracking-widest">
-                {lang === 'fr'
-                  ? `Interface pour ${activeItem.label.fr}`
-                  : `واجهة لـ ${activeItem.label.ar}`}
-              </p>
-            </div>
-
-            <div className="glass-card p-12 min-h-[500px] flex items-center justify-center border-dashed border-saas-border bg-white group">
-              <div className="text-center space-y-6">
-                <div className="text-8xl opacity-10 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700 transform group-hover:scale-110">
-                  {activeItem.icon}
-                </div>
-                <div className="space-y-3">
-                  <p className="text-saas-text-main font-black text-2xl uppercase tracking-tighter">
-                    {lang === 'fr' ? 'Contenu en développement' : 'المحتوى قيد التطوير'}
-                  </p>
-                  <p className="text-saas-text-muted text-sm font-medium max-w-md mx-auto">
-                    {lang === 'fr'
-                      ? 'Cette section est en cours de modernisation pour correspondre à votre nouveau standard SaaS.'
-                      : 'هذا القسم قيد التحديث ليتناسب مع معايير SaaS الجديدة الخاصة بك.'}
-                  </p>
-                </div>
-                <button className="btn-saas-primary px-8 py-3">
-                  {lang === 'fr' ? 'En savoir plus' : 'معرفة المزيد'}
-                </button>
-              </div>
-            </div>
+          <div className="fx-card p-8 sm:p-12 text-center max-w-lg mx-auto">
+            <div className="text-6xl mb-4 opacity-40">{activeItem.icon}</div>
+            <h2 className="fx-title text-xl mb-2">{activeItem.label[lang]}</h2>
+            <p className="text-sm" style={{ color: 'var(--fx-ink-mute)' }}>
+              {lang === 'fr' ? 'Section indisponible.' : 'القسم غير متاح.'}
+            </p>
           </div>
         );
     }
   };
 
   return (
-    <div className={`flex min-h-screen bg-saas-bg text-saas-text-main ${lang === 'ar' ? 'font-arabic' : ''}`}>
+    <div className={`flex min-h-screen ${lang === 'ar' ? 'font-arabic' : ''}`}>
       {!supabaseConfigured && (
-        <div className="fixed inset-0 bg-yellow-100 text-yellow-900 flex items-center justify-center z-50 p-4 text-center">
-          <strong>Warning:</strong> Supabase variables are missing. Set
-          <code className="mx-1">VITE_SUPABASE_URL</code> and
-          <code className="mx-1">VITE_SUPABASE_ANON_KEY</code> in your environment.
+        <div className="fixed inset-x-0 top-0 z-[60] px-4 py-2 text-center text-xs font-bold"
+             style={{ background: 'var(--fx-grad-red)', color: '#fff' }}>
+          Supabase non configuré — définissez VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY.
         </div>
       )}
       <Sidebar
@@ -178,14 +190,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           toggleSidebar={() => setIsSidebarVisible(!isSidebarVisible)}
         />
 
-        <main className="flex-1 p-8 overflow-y-auto">
+        {/* Le rembourrage suit la taille de l'écran : 16 px au pouce, 32 px au
+            bureau. À 8 px partout, les cartes touchaient le bord du téléphone. */}
+        <main className="fx-page-shell flex-1 min-w-0 p-3 sm:p-5 lg:p-8 fx-safe-b">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              className="min-w-0"
             >
               {renderContent()}
             </motion.div>
@@ -193,7 +208,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </main>
       </div>
 
-      {/* Mobile Overlay */}
+      {/* Voile mobile : ferme la barre latérale au toucher */}
       <AnimatePresence>
         {isSidebarVisible && (
           <motion.div
@@ -201,7 +216,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsSidebarVisible(false)}
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
+            className="fixed inset-0 z-40 lg:hidden"
+            style={{ background: 'rgba(4,4,6,0.72)', backdropFilter: 'blur(6px)' }}
           />
         )}
       </AnimatePresence>
@@ -259,14 +275,16 @@ export default function App() {
       '/dashboard': 'dashboard',
       '/planificateur': 'planner',
       '/gains-vehicule': 'car-gains',
+      '/caisse': 'caisse',
       '/vehicules': 'vehicles',
       '/maintenance': 'maintenance',
       '/clients': 'clients',
-      '/agences': 'agencies',
       '/equipe': 'team',
-      '/personalisation': 'personalization',
       '/depenses': 'expenses',
       '/website-management': 'web-mgmt',
+      '/website-reservations': 'web-orders',
+      // Ancienne URL des commandes du site : conservée pour ne pas casser les
+      // favoris. Elle pointe sur la même interface, renommée « réservations ».
       '/website-commandes': 'web-orders',
       '/protection-services': 'protection-services',
       '/reservations': 'reservations',
@@ -301,15 +319,14 @@ export default function App() {
       'dashboard': '/dashboard',
       'planner': '/planificateur',
       'car-gains': '/gains-vehicule',
+      'caisse': '/caisse',
       'vehicles': '/vehicules',
       'maintenance': '/maintenance',
       'clients': '/clients',
-      'agencies': '/agences',
       'team': '/equipe',
-      'personalization': '/personalisation',
       'expenses': '/depenses',
       'web-mgmt': '/website-management',
-      'web-orders': '/website-commandes',
+      'web-orders': '/website-reservations',
       'protection-services': '/protection-services',
       'reservations': '/reservations',
       'reports': '/rapports',
@@ -649,6 +666,7 @@ export default function App() {
   };
 
   return (
+    <PermissionsProvider user={user}>
     <Routes>
       {/* Website route */}
       <Route path="/website" element={
@@ -680,19 +698,25 @@ export default function App() {
       <Route path="/dashboard" element={<ProtectedRoute {...protectedProps} />} />
       <Route path="/planificateur" element={<ProtectedRoute {...protectedProps} />} />
       <Route path="/gains-vehicule" element={<ProtectedRoute {...protectedProps} />} />
+      <Route path="/caisse" element={<ProtectedRoute {...protectedProps} />} />
       <Route path="/vehicules" element={<ProtectedRoute {...protectedProps} />} />
       <Route path="/maintenance" element={<ProtectedRoute {...protectedProps} />} />
       <Route path="/clients" element={<ProtectedRoute {...protectedProps} />} />
-      <Route path="/agences" element={<ProtectedRoute {...protectedProps} />} />
       <Route path="/equipe" element={<ProtectedRoute {...protectedProps} />} />
-      <Route path="/personalisation" element={<ProtectedRoute {...protectedProps} />} />
       <Route path="/depenses" element={<ProtectedRoute {...protectedProps} />} />
       <Route path="/website-management" element={<ProtectedRoute {...protectedProps} />} />
+      <Route path="/website-reservations" element={<ProtectedRoute {...protectedProps} />} />
+      {/* Ancienne URL — conservée pour les favoris déjà enregistrés. */}
       <Route path="/website-commandes" element={<ProtectedRoute {...protectedProps} />} />
       <Route path="/protection-services" element={<ProtectedRoute {...protectedProps} />} />
       <Route path="/reservations" element={<ProtectedRoute {...protectedProps} />} />
       <Route path="/rapports" element={<ProtectedRoute {...protectedProps} />} />
       <Route path="/configuration" element={<ProtectedRoute {...protectedProps} />} />
+
+      {/* Les deux interfaces retirées : on redirige plutôt que de laisser un 404
+          sur un favori existant. */}
+      <Route path="/agences" element={<Navigate to="/planificateur" replace />} />
+      <Route path="/personalisation" element={<Navigate to="/configuration" replace />} />
 
       {/* Default redirect */}
       <Route path="/" element={
@@ -704,5 +728,6 @@ export default function App() {
         isAuthLoading ? <LoadingScreen /> : <Navigate to={user ? "/dashboard" : "/login"} replace />
       } />
     </Routes>
+    </PermissionsProvider>
   );
 }

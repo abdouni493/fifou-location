@@ -10,6 +10,16 @@ import { SidebarItem, Agency, Car } from './types';
  */
 export const HERO_SPLINE_SCENE_URL = '';
 
+/**
+ * Navigation du back-office.
+ *
+ * `group` sert uniquement au rendu de la barre latérale (séparateurs de
+ * section) — l'id reste la clé unique utilisée par les routes ET par les
+ * permissions des employés (cf. src/constants/permissions.ts).
+ *
+ * Retirés à la demande : `agencies` (la création d'agence se fait désormais
+ * dans la 1ʳᵉ étape du wizard de réservation) et `personalization`.
+ */
 export const SIDEBAR_ITEMS: SidebarItem[] = [
   { id: 'dashboard', label: { fr: 'Tableau de bord', ar: 'لوحة القيادة' }, icon: '📊' },
   { id: 'planner', label: { fr: 'Planificateur', ar: 'المخطط' }, icon: '📅' },
@@ -17,15 +27,24 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
   { id: 'vehicles', label: { fr: 'Véhicules', ar: 'المركبات' }, icon: '🚗' },
   { id: 'maintenance', label: { fr: 'Maintenance', ar: 'الصيانة' }, icon: '🔧' },
   { id: 'clients', label: { fr: 'Clients', ar: 'العملاء' }, icon: '👥' },
-  { id: 'agencies', label: { fr: 'Agences', ar: 'الوكالات' }, icon: '🏢' },
   { id: 'team', label: { fr: 'Équipe', ar: 'الفريق' }, icon: '🤝' },
-  { id: 'personalization', label: { fr: 'Personalisation', ar: 'التخصيص' }, icon: '🎨' },
   { id: 'expenses', label: { fr: 'Dépenses', ar: 'المصاريف' }, icon: '📉' },
   { id: 'web-mgmt', label: { fr: 'Website management', ar: 'إدارة الموقع' }, icon: '🌐' },
-  { id: 'web-orders', label: { fr: 'Website commandes', ar: 'طلبات الموقع' }, icon: '🛒' },
+  { id: 'web-orders', label: { fr: 'Website réservations', ar: 'حجوزات الموقع' }, icon: '🛒' },
   { id: 'car-gains', label: { fr: 'Gains par Véhicule', ar: 'الأرباح حسب المركبة' }, icon: '💰' },
+  { id: 'caisse', label: { fr: 'Caisse', ar: 'الصندوق' }, icon: '🏦' },
   { id: 'reports', label: { fr: 'Rapports', ar: 'التقارير' }, icon: '📄' },
   { id: 'config', label: { fr: 'Configuration', ar: 'الإعدادات' }, icon: '🛠️' },
+];
+
+/** Regroupement visuel de la barre latérale (l'ordre suit SIDEBAR_ITEMS). */
+export const SIDEBAR_GROUPS: { label: { fr: string; ar: string }; items: string[] }[] = [
+  { label: { fr: 'Pilotage', ar: 'القيادة' }, items: ['dashboard', 'planner', 'reservations'] },
+  { label: { fr: 'Flotte', ar: 'الأسطول' }, items: ['vehicles', 'maintenance'] },
+  { label: { fr: 'Personnes', ar: 'الأشخاص' }, items: ['clients', 'team'] },
+  { label: { fr: 'Site public', ar: 'الموقع' }, items: ['web-mgmt', 'web-orders'] },
+  { label: { fr: 'Finances', ar: 'المالية' }, items: ['expenses', 'car-gains', 'caisse', 'reports'] },
+  { label: { fr: 'Système', ar: 'النظام' }, items: ['config'] },
 ];
 
 // Agencies data

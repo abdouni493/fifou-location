@@ -11,6 +11,9 @@ import { DatabaseService } from '../services/DatabaseService';
 import { ReservationDetailsView } from './ReservationDetailsView';
 import { EditReservationForm } from './EditReservationForm';
 import { PersonalizationModal } from './PlannerPage';
+import {
+  PageHeader, StatCard, StatGrid, SearchInput, Select, EmptyState, LoadingState,
+} from './ui/fx';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 const T = (fr: string, ar: string, lang: Language) => lang === 'fr' ? fr : ar;
@@ -245,182 +248,122 @@ export const ReservationsPage: React.FC<ReservationsPageProps> = ({ lang, isAuth
   // Main list view
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-8">
-      {/* ── En-tête ────────────────────────────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: -12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-2xl border border-saas-border p-8 shadow-sm"
+    <div className="max-w-[92rem] mx-auto">
+      <PageHeader
+        icon="🧾"
+        eyebrow={T('Archives', 'الأرشيف', lang)}
+        title={T('Contrats', 'العقود', lang)}
+        subtitle={T('Réservations terminées et contrats clôturés.', 'الحجوزات المنتهية والعقود المغلقة.', lang)}
       >
-        <h1 className="text-3xl font-black text-saas-text-main tracking-tighter uppercase">
-          🧾 {T('Contrats', 'العقود', lang)}
-        </h1>
-        <p className="text-[10px] text-saas-primary-via font-bold uppercase tracking-[0.3em] mt-1">
-          {T('Réservations terminées · contrats clôturés', 'الحجوزات المنتهية · العقود المغلقة', lang)}
-        </p>
-      </motion.div>
+        {/* ── Filtres ── */}
+        <div className="space-y-2.5">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2.5">
+            <div ref={segRef} className="fx-tabs max-w-full overflow-x-auto fx-scroll-x">
+              {PERIODS.map(p => (
+                <button
+                  key={p.key}
+                  onClick={() => setPeriod(p.key)}
+                  className={`fx-tab ${period === p.key ? 'fx-tab-active' : ''}`}
+                >
+                  {p[lang]}
+                </button>
+              ))}
+            </div>
 
-      {/* ── Filtres ────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center w-full">
-        {/* Segmented control période et dates personnalisées */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div ref={segRef} className="relative flex bg-saas-bg border border-saas-border rounded-xl p-1 gap-0.5">
-            {PERIODS.map(p => (
-              <button
-                key={p.key}
-                onClick={() => setPeriod(p.key)}
-                className={`relative z-10 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-                  period === p.key
-                    ? 'bg-white shadow-sm text-saas-text-main border border-saas-border'
-                    : 'text-saas-text-muted hover:text-saas-text-main'
-                }`}
-              >
-                {p[lang]}
-              </button>
-            ))}
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder={T('Client, véhicule, immatriculation…', 'عميل، مركبة، رقم لوحة…', lang)}
+              className="sm:max-w-xs"
+            />
+
+            <Select
+              value={filterSource}
+              onChange={v => setFilterSource(v as 'all' | 'website' | 'agency')}
+              className="w-full sm:w-44"
+              aria-label={T('Origine', 'المصدر', lang)}
+              options={[
+                { value: 'all', label: T('Toutes origines', 'كل المصادر', lang) },
+                { value: 'website', label: T('🌐 Site web', '🌐 الموقع', lang) },
+                { value: 'agency', label: T('🏢 Agence', '🏢 الوكالة', lang) },
+              ]}
+            />
           </div>
 
-          {/* Custom Date Inputs */}
           <AnimatePresence>
             {period === 'custom' && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex flex-col sm:flex-row gap-2 overflow-hidden"
               >
-                <div className="flex items-center gap-2 bg-white border border-saas-border rounded-xl px-3 py-2">
-                  <Calendar size={14} className="text-saas-text-muted" />
-                  <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={e => setCustomStartDate(e.target.value)}
-                    className="bg-transparent border-none outline-none text-xs text-saas-text-main font-semibold"
-                  />
-                </div>
-                <span className="text-saas-text-muted text-xs font-bold text-center">→</span>
-                <div className="flex items-center gap-2 bg-white border border-saas-border rounded-xl px-3 py-2">
-                  <Calendar size={14} className="text-saas-text-muted" />
-                  <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={e => setCustomEndDate(e.target.value)}
-                    className="bg-transparent border-none outline-none text-xs text-saas-text-main font-semibold"
-                  />
-                </div>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={e => setCustomStartDate(e.target.value)}
+                  className="fx-field flex-1"
+                  aria-label={T('Du', 'من', lang)}
+                />
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={e => setCustomEndDate(e.target.value)}
+                  className="fx-field flex-1"
+                  aria-label={T('Au', 'إلى', lang)}
+                />
               </motion.div>
             )}
           </AnimatePresence>
         </div>
+      </PageHeader>
 
-        {/* Recherche */}
-        <div className="relative flex-1 min-w-0 max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-saas-text-muted" size={16} />
-          <input
-            type="text"
-            placeholder={T('Client, véhicule, immatriculation…', 'عميل، مركبة، رقم لوحة…', lang)}
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 bg-white border border-saas-border rounded-xl text-sm outline-none focus:border-saas-primary-via transition-all"
+      {/* ── Chiffres de la période ── */}
+      <div className="mb-5">
+        <StatGrid cols={3}>
+          <StatCard
+            label={T('Total encaissé', 'إجمالي المحصّل', lang)}
+            value={`${fmt(totalGains)} DA`}
+            icon={<TrendingUp size={15} />}
+            tone="green"
           />
-        </div>
-
-        {/* Filtre par origine (site web / agence) */}
-        <select
-          value={filterSource}
-          onChange={e => setFilterSource(e.target.value as 'all' | 'website' | 'agency')}
-          className="px-4 py-2.5 bg-white border border-saas-border rounded-xl text-sm font-bold text-saas-text-main outline-none focus:border-saas-primary-via transition-all cursor-pointer"
-          title={T('Filtrer par origine', 'تصفية حسب المصدر', lang)}
-        >
-          <option value="all">{T('Toutes origines', 'كل المصادر', lang)}</option>
-          <option value="website">{T('🌐 Site web', '🌐 الموقع', lang)}</option>
-          <option value="agency">{T('🏢 Agence', '🏢 الوكالة', lang)}</option>
-        </select>
-
-        {/* Statut badge — toujours "Terminée" */}
-        <div className="px-4 py-2.5 bg-violet-50 border border-violet-200 rounded-xl text-xs font-black text-violet-700 uppercase tracking-wider">
-          ✅ {T('Terminées', 'منتهية', lang)}
-        </div>
-      </div>
-
-      {/* ── Cartes stats ───────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Carte 1 — Total gains */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}
-          className="glass-card border border-emerald-100 bg-emerald-50 p-6 flex items-start gap-4"
-        >
-          <div className="p-3 bg-emerald-100 rounded-xl flex-shrink-0">
-            <TrendingUp className="text-emerald-600" size={22} />
-          </div>
-          <div>
-            <p className="text-2xl font-black text-emerald-700">{fmt(totalGains)}</p>
-            <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-500 mt-0.5">
-              {T('Total encaissé · DZD', 'إجمالي المحصّل · د.ج', lang)}
-            </p>
-          </div>
-        </motion.div>
-
-        {/* Carte 2 — Nombre */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="glass-card border border-blue-100 bg-blue-50 p-6 flex items-start gap-4"
-        >
-          <div className="p-3 bg-blue-100 rounded-xl flex-shrink-0">
-            <Users className="text-blue-600" size={22} />
-          </div>
-          <div>
-            <p className="text-2xl font-black text-blue-700">{periodReservations.length}</p>
-            <p className="text-[9px] font-bold uppercase tracking-widest text-blue-500 mt-0.5">
-              {T('Contrats terminés · période', 'عقود منتهية · الفترة', lang)}
-            </p>
-          </div>
-        </motion.div>
-
-        {/* Carte 3 — Total restes (cliquable) */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          whileHover={{ scale: 1.01 }}
-          onClick={() => setShowDebtModal(true)}
-          className="glass-card border border-amber-100 bg-amber-50 p-6 flex items-start gap-4 cursor-pointer hover:shadow-md transition-shadow"
-        >
-          <div className="p-3 bg-amber-100 rounded-xl flex-shrink-0">
-            <AlertCircle className="text-amber-600" size={22} />
-          </div>
-          <div>
-            <p className="text-2xl font-black text-amber-700">{fmt(totalReste)}</p>
-            <p className="text-[9px] font-bold uppercase tracking-widest text-amber-500 mt-0.5">
-              {T('Total des restes · DZD (cliquer)', 'إجمالي الديون · د.ج (اضغط)', lang)}
-            </p>
-          </div>
-        </motion.div>
+          <StatCard
+            label={T('Contrats terminés', 'عقود منتهية', lang)}
+            value={periodReservations.length}
+            hint={T('Sur la période choisie', 'خلال الفترة', lang)}
+            icon={<Users size={15} />}
+            tone="steel"
+          />
+          <StatCard
+            label={T('Total des restes dus', 'إجمالي الديون', lang)}
+            value={`${fmt(totalReste)} DA`}
+            hint={T('Cliquer pour le détail', 'اضغط للتفاصيل', lang)}
+            icon={<AlertCircle size={15} />}
+            tone={totalReste > 0 ? 'amber' : 'green'}
+            onClick={() => setShowDebtModal(true)}
+          />
+        </StatGrid>
       </div>
 
       {/* ── Tableau ────────────────────────────────────────────────────────── */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-24 bg-white rounded-2xl border border-saas-border">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="animate-spin text-saas-primary-via" size={32} />
-            <p className="text-saas-text-muted font-medium text-sm">
-              {T('Chargement des réservations…', 'جاري تحميل الحجوزات…', lang)}
-            </p>
-          </div>
-        </div>
+        <LoadingState label={T('Chargement des contrats…', 'جاري التحميل…', lang)} rows={6} />
       ) : filteredReservations.length === 0 ? (
-        <div className="flex items-center justify-center py-24 bg-white rounded-2xl border-2 border-dashed border-saas-border">
-          <div className="text-center">
-            <span className="text-6xl opacity-20 block mb-4">🧾</span>
-            <p className="text-saas-text-muted font-bold uppercase text-sm tracking-wider">
-              {T('Aucun contrat terminé sur cette période', 'لا توجد عقود منتهية في هذه الفترة', lang)}
-            </p>
-          </div>
-        </div>
+        <EmptyState
+          icon="🧾"
+          title={T('Aucun contrat terminé', 'لا عقود منتهية', lang)}
+          description={T(
+            'Aucune réservation clôturée sur cette période. Élargissez le filtre de période ou changez l’origine.',
+            'لا حجوزات مغلقة في هذه الفترة.',
+            lang,
+          )}
+        />
       ) : (
-        <div className="bg-white rounded-2xl border border-saas-border shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-sm">
-              <thead>
-                <tr className="border-b border-saas-border bg-saas-bg">
+        <div className="fx-panel overflow-hidden">
+          <div className="fx-table-wrap custom-scrollbar">
+            <table className="w-full min-w-[900px] text-sm border-collapse">
+              <thead className="fx-table-head">
+                <tr>
                   {[
                     T('Client', 'العميل', lang),
                     T('Véhicule', 'المركبة', lang),
@@ -431,7 +374,11 @@ export const ReservationsPage: React.FC<ReservationsPageProps> = ({ lang, isAuth
                     T('Statut', 'الحالة', lang),
                     T('Actions', 'إجراءات', lang),
                   ].map((h, i) => (
-                    <th key={i} className="px-4 py-3 text-left text-[9px] font-black text-saas-text-muted uppercase tracking-widest whitespace-nowrap">
+                    <th
+                      key={i}
+                      className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.12em] whitespace-nowrap"
+                      style={{ color: 'var(--fx-ink-mute)' }}
+                    >
                       {h}
                     </th>
                   ))}
@@ -450,9 +397,9 @@ export const ReservationsPage: React.FC<ReservationsPageProps> = ({ lang, isAuth
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0 }}
-                        transition={{ delay: idx * 0.02 }}
-                        whileHover={{ backgroundColor: '#f8fafc' }}
-                        className={`border-b border-saas-border last:border-0 transition-colors ${idx % 2 === 0 ? '' : 'bg-saas-bg/40'}`}
+                        transition={{ delay: Math.min(idx, 12) * 0.02 }}
+                        className="fx-table-row border-b last:border-0"
+                        style={{ borderColor: 'var(--fx-line)' }}
                       >
                         {/* Client */}
                         <td className="px-4 py-3 font-semibold text-saas-text-main whitespace-nowrap">
@@ -546,7 +493,7 @@ export const ReservationsPage: React.FC<ReservationsPageProps> = ({ lang, isAuth
         {showDebtModal && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            className="fx-overlay p-4"
           >
             <motion.div
               initial={{ scale: 0.95, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 16 }}
@@ -650,17 +597,20 @@ export const ReservationsPage: React.FC<ReservationsPageProps> = ({ lang, isAuth
 };
 
 // ── ActionBtn helper ──────────────────────────────────────────────────────────
+/**
+ * Bouton d'action d'une ligne de tableau.
+ *
+ * `color` est conservé dans la signature (une dizaine d'appels le passent) mais
+ * n'est plus utilisé : la peau carbone n'a qu'un seul jeu d'états de survol, et
+ * six teintes différentes sur une même ligne rendaient le tableau illisible.
+ */
 const ActionBtn: React.FC<{
   icon: React.ReactNode;
   label: string;
-  color: string;
+  color?: string;
   onClick: () => void;
-}> = ({ icon, label, color, onClick }) => (
-  <button
-    onClick={onClick}
-    title={label}
-    className={`p-1.5 rounded-lg transition-colors ${color}`}
-  >
+}> = ({ icon, label, onClick }) => (
+  <button onClick={onClick} title={label} aria-label={label} className="fx-icon-btn p-2">
     {icon}
   </button>
 );

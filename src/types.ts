@@ -175,6 +175,16 @@ export interface WorkerPayment {
   absences: number;
   netSalary: number;
   note?: string;
+  /** Période couverte par le règlement — sert à savoir ce qui reste dû. */
+  periodStart?: string;
+  periodEnd?: string;
+}
+
+/** Rôle d'employé : un libellé libre créé par l'admin. Il ne porte aucun droit. */
+export interface WorkerRole {
+  id: string;
+  name: string;
+  createdAt?: string;
 }
 
 export interface Worker {
@@ -186,21 +196,47 @@ export interface Worker {
   email: string;
   address?: string;
   profilePhoto?: string;
+  /** Numéro de carte d'identité — facultatif. */
+  idCardNumber?: string;
 
   // Work Information
   type: 'admin' | 'worker' | 'driver';
+  /** Libellé du rôle choisi/créé par l'admin (indépendant de `type`). */
+  roleName?: string;
+  /** Date d'entrée en fonction — origine du calcul des périodes dues. */
+  startDate?: string;
+  /** L'employé est-il rémunéré ? Faux ⇒ ni salaire, ni acompte, ni paie. */
+  paymentEnabled?: boolean;
   paymentType?: PaymentType;
   baseSalary: number;
 
   // Login Credentials
+  /** Un compte de connexion existe-t-il pour cet employé ? */
+  accountEnabled?: boolean;
   username: string;
   password: string;
+  /** id dans auth.users quand un compte Supabase a été créé. */
+  authUserId?: string;
+
+  /** Droits accordés : clés « page:action » (cf. constants/permissions.ts). */
+  permissions?: string[];
 
   // Records
   advances: WorkerAdvance[];
   absences: WorkerAbsence[];
   payments: WorkerPayment[];
 
+  createdAt: string;
+}
+
+/** Un mouvement d'espèces saisi manuellement dans la Caisse. */
+export interface CaisseTransaction {
+  id: string;
+  type: 'deposit' | 'withdraw';
+  amount: number;
+  date: string;
+  description?: string;
+  createdBy?: string;
   createdAt: string;
 }
 export interface StoreExpense {

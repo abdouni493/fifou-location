@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { VehicleExpense, Language, Car } from '../types';
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
+import { CarPicker } from './ui/CarPicker';
 
 interface VehicleExpenseModalProps {
   isOpen: boolean;
@@ -174,39 +175,48 @@ export const VehicleExpenseModal: React.FC<VehicleExpenseModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+    <div className="fx-overlay">
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        initial={{ opacity: 0, scale: 0.97, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden flex flex-col border border-saas-border max-h-[90vh]"
+        transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+        className="fx-modal sm:max-w-lg"
       >
-        <div className="p-6 border-b border-saas-border flex items-center justify-between bg-linear-to-r from-saas-primary-start via-saas-primary-via to-saas-primary-end text-white">
-          <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
-            🚗 {{fr: 'Dépense Véhicule', ar: 'نفقة المركبة'}[lang]}
-          </h2>
-          <button onClick={onClose} className="p-2.5 hover:bg-white/20 rounded-xl transition-colors">
-            <X size={24} />
+        <div className="fx-modal-head">
+          <div className="flex items-center gap-3 min-w-0">
+            <span
+              className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-lg"
+              style={{ backgroundImage: 'var(--fx-grad-red-tint)', border: '1px solid var(--fx-line-red)' }}
+            >
+              🚗
+            </span>
+            <div className="min-w-0">
+              <h2 className="fx-title text-base sm:text-lg leading-tight truncate">
+                {{ fr: 'Dépense véhicule', ar: 'نفقة المركبة' }[lang]}
+              </h2>
+              <p className="text-[11px] mt-0.5" style={{ color: 'var(--fx-ink-mute)' }}>
+                {{ fr: 'Entretien, assurance, contrôle ou frais divers', ar: 'صيانة، تأمين، فحص' }[lang]}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} aria-label="Fermer" className="fx-icon-btn p-2 shrink-0">
+            <X size={17} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
-          {/* Car Selection */}
+        <form onSubmit={handleSubmit} className="fx-modal-body space-y-4 custom-scrollbar">
+          {/* Véhicule — recherche par marque, modèle, immatriculation ou châssis */}
           <div className="space-y-2">
-            <label className="label-saas">🚗 {{fr: 'Véhicule *', ar: 'المركبة *'}[lang]}</label>
-            <select
-              name="carId"
+            <label className="fx-label">🚗 {{ fr: 'Véhicule', ar: 'المركبة' }[lang]} *</label>
+            <CarPicker
+              cars={cars}
               value={formData.carId}
-              onChange={handleCarChange}
-              className="input-saas"
+              lang={lang}
               required
-            >
-              <option value="">{{fr: 'Sélectionner un véhicule', ar: 'اختر مركبة'}[lang]}</option>
-              {cars.map(car => (
-                <option key={car.id} value={car.id}>
-                  {car.brand} {car.model} ({car.registration})
-                </option>
-              ))}
-            </select>
+              onChange={(carId) =>
+                handleCarChange({ target: { value: carId } } as React.ChangeEvent<HTMLSelectElement>)
+              }
+            />
           </div>
 
           {/* Expense Type */}
@@ -622,16 +632,13 @@ export const VehicleExpenseModal: React.FC<VehicleExpenseModalProps> = ({
         </form>
 
         {/* Footer */}
-        <div className="p-6 border-t border-saas-border flex items-center gap-3 bg-saas-bg">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 px-4 rounded-lg font-bold text-sm bg-white border-2 border-saas-border hover:bg-saas-bg-light transition-colors text-saas-text-main"
-          >
+        <div className="fx-modal-foot">
+          <button onClick={onClose} className="fx-btn fx-btn-ghost flex-1 py-3 px-4 rounded-xl font-bold text-sm">
             {{fr: 'Annuler', ar: 'إلغاء'}[lang]}
           </button>
           <button
             onClick={handleSubmit}
-            className="flex-1 btn-saas-primary py-3"
+            className="fx-btn fx-btn-primary flex-1 py-3 px-4 rounded-xl font-bold text-sm"
           >
             {/* Une dépense pré-remplie depuis la maintenance n'a pas d'id : c'est
                 un AJOUT à l'historique, pas une modification. Seule une dépense

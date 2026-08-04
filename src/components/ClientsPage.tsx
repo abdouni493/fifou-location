@@ -5,9 +5,14 @@ import { ClientModal } from './ClientModal';
 import { ClientDetailsModal } from './ClientDetailsModal';
 import { ClientHistoryModal } from './ClientHistoryModal';
 import { ConfirmModal } from './ConfirmModal';
-import { Plus, Search } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { Plus } from 'lucide-react';
+import { AnimatePresence } from 'motion/react';
 import { DatabaseService } from '../services/DatabaseService';
+import { useCan } from '../utils/permissions';
+import {
+  PageHeader, StatCard, StatGrid, Toolbar, SearchInput, Btn,
+  EmptyState, LoadingState, ErrorBanner,
+} from './ui/fx';
 
 interface ClientsPageProps {
   lang: Language;
@@ -38,6 +43,7 @@ const MOCK_RENTALS: Rental[] = [
 ];
 
 export const ClientsPage: React.FC<ClientsPageProps> = ({ lang, isAuthLoading = false, user = null }) => {
+  const can = useCan('clients');
   const [clients, setClients] = useState<Client[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -137,95 +143,103 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({ lang, isAuthLoading = 
     }
   };
 
-  return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col gap-2">
-        <h2 className="text-3xl font-black text-saas-text-main uppercase tracking-tighter">
-          👥 {lang === 'fr' ? 'Clients' : 'العملاء'}
-        </h2>
-        <p className="text-saas-text-muted font-bold uppercase text-[10px] tracking-widest">
-          {lang === 'fr' 
-            ? 'Gestion des clients et des réservations' 
-            : 'إدارة العملاء والحجوزات'}
-        </p>
-      </div>
+  const fr = lang === 'fr';
 
-      {/* Error Display */}
+  // Un permis périmé bloque une location : ces clients passent en tête.
+  const expiredCount = clients.filter(c => {
+    const exp = c.licenseExpirationDate ?? (c as any).licenseExpiration;
+    return exp && new Date(exp).getTime() < Date.now();
+  }).length;
+
+  return (
+    <div className="max-w-[92rem] mx-auto">
+      <PageHeader
+        icon="👥"
+        eyebrow={fr ? 'Répertoire' : 'الدليل'}
+        title={fr ? 'Clients' : 'العملاء'}
+        subtitle={fr ? 'Fiches, documents et historique de location.' : 'البطاقات والمستندات وسجل الإيجار.'}
+        actions={
+          can('create') ? (
+            <Btn tone="primary" onClick={handleAddClient}>
+              <Plus size={16} />
+              {fr ? 'Nouveau client' : 'عميل جديد'}
+            </Btn>
+          ) : null
+        }
+      />
+
       {error && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between"
-        >
-          <div className="flex items-center gap-3">
-            <div className="text-red-500">⚠️</div>
-            <p className="text-red-700 font-medium">{error}</p>
-          </div>
-          {error.includes('Session expirée') && (
-            <button
-              onClick={() => window.location.reload()}
-              className="btn-saas-primary text-sm px-4 py-2"
-            >
-              {lang === 'fr' ? 'Se reconnecter' : 'إعادة الاتصال'}
-            </button>
-          )}
-        </motion.div>
+        <ErrorBanner
+          message={error}
+          onRetry={() => window.location.reload()}
+          retryLabel={fr ? 'Se reconnecter' : 'إعادة الاتصال'}
+        />
       )}
 
-      {/* Controls */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-4 top-3 text-saas-text-muted" size={18} />
-          <input
-            type="text"
-            placeholder={lang === 'fr' ? 'Rechercher un client...' : 'ابحث عن عميل...'}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="input-saas pl-10"
+      <div className="mb-5">
+        <StatGrid cols={3}>
+          <StatCard label={fr ? 'Clients' : 'العملاء'} value={clients.length} icon="👥" tone="steel" />
+          <StatCard
+            label={fr ? 'Permis expirés' : 'رخص منتهية'}
+            value={expiredCount}
+            hint={fr ? 'Location impossible en l’état' : 'الإيجار غير ممكن'}
+            icon="⛔"
+            tone={expiredCount > 0 ? 'red' : 'green'}
           />
-        </div>
-        <button
-          onClick={handleAddClient}
-          className="btn-saas-primary whitespace-nowrap"
-        >
-          <Plus size={18} />
-          {lang === 'fr' ? 'Nouveau Client' : 'عميل جديد'}
-        </button>
+          <StatCard
+            label={fr ? 'Résultats affichés' : 'النتائج'}
+            value={filteredClients.length}
+            icon="🔍"
+            tone="steel"
+          />
+        </StatGrid>
       </div>
 
-      {/* Clients Grid */}
-      <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <AnimatePresence mode="popLayout">
-          {filteredClients.length > 0 ? (
-            filteredClients.map((client) => (
+      <Toolbar>
+        <SearchInput
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder={fr ? 'Nom, téléphone, e-mail, permis…' : 'الاسم، الهاتف، البريد…'}
+        />
+      </Toolbar>
+
+      {loading ? (
+        <LoadingState label={fr ? 'Chargement des clients…' : 'جاري التحميل…'} rows={6} />
+      ) : filteredClients.length === 0 ? (
+        <EmptyState
+          icon="👥"
+          title={clients.length === 0 ? (fr ? 'Aucun client' : 'لا عملاء') : (fr ? 'Aucun résultat' : 'لا نتائج')}
+          description={
+            clients.length === 0
+              ? (fr ? 'Créez votre première fiche client pour lancer une réservation.' : 'أنشئ أول بطاقة عميل.')
+              : (fr ? 'Essayez un autre terme de recherche.' : 'جرّب بحثًا آخر.')
+          }
+          action={
+            clients.length === 0 && can('create') ? (
+              <Btn tone="primary" onClick={handleAddClient}>
+                <Plus size={16} /> {fr ? 'Nouveau client' : 'عميل جديد'}
+              </Btn>
+            ) : undefined
+          }
+        />
+      ) : (
+        <div className="fx-stagger grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3.5">
+          <AnimatePresence mode="popLayout">
+            {filteredClients.map((client) => (
               <ClientCard
                 key={client.id}
                 client={client}
                 lang={lang}
+                can={can}
                 onEdit={() => handleEditClient(client)}
                 onDelete={() => handleDeleteClick(client.id)}
                 onViewDetails={() => handleViewDetails(client)}
                 onHistory={() => handleViewHistory(client)}
               />
-            ))
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="col-span-full glass-card p-12 flex items-center justify-center text-center"
-            >
-              <div className="space-y-4">
-                <div className="text-6xl opacity-30">👥</div>
-                <p className="text-saas-text-muted font-semibold">
-                  {lang === 'fr' ? 'Aucun client trouvé' : 'لم يتم العثور على عملاء'}
-                </p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
 
       {/* Modals */}
       <ClientModal

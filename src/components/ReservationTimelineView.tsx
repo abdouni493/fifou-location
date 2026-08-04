@@ -440,7 +440,7 @@ export const ReservationTimelineView: React.FC<ReservationTimelineViewProps> = (
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4"
+            className="fx-overlay p-4"
             onClick={() => setSelectedReservationForDetail(null)}
           >
             <motion.div

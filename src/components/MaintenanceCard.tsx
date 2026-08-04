@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Car, Language } from '../types';
 import { MaintenanceStatus, getStatusColor, getStatusEmoji } from '../services/maintenanceService';
-import { Edit2 } from 'lucide-react';
+import { Edit2, Plus } from 'lucide-react';
 
 interface MaintenanceCardProps {
   maintenance: MaintenanceStatus;
@@ -12,6 +12,8 @@ interface MaintenanceCardProps {
   onChaineClick: (car: Car, expenseId?: string) => void;
   onAssuranceClick: (car: Car, expenseId?: string) => void;
   onControleClick: (car: Car, expenseId?: string) => void;
+  /** Dépense libre (type « Autres ») pour ce véhicule. Absent ⇒ bouton masqué. */
+  onAutreClick?: (car: Car) => void;
 }
 
 export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
@@ -22,6 +24,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
   onChaineClick,
   onAssuranceClick,
   onControleClick,
+  onAutreClick,
 }) => {
   const { car, vidange, chaine, assurance, controleTechnique } = maintenance;
 
@@ -89,144 +92,126 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-      className="glass-card overflow-hidden bg-white flex flex-col group"
+      className="fx-card overflow-hidden flex flex-col group"
     >
-      {/* Car Header Image */}
-      <div className="relative h-48 overflow-hidden">
+      {/* ── Visuel ── */}
+      <div className="relative h-36 sm:h-40 overflow-hidden shrink-0">
         <img
           src={car.images[0] || 'https://picsum.photos/seed/car/400/300'}
           alt={`${car.brand} ${car.model}`}
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           referrerPolicy="no-referrer"
+          loading="lazy"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'linear-gradient(180deg, rgba(8,8,11,0.2) 0%, transparent 40%, rgba(8,8,11,0.9) 100%)' }}
+        />
 
-        {/* Year Badge */}
-        <div className="absolute top-2 right-2 bg-saas-primary-start/90 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg backdrop-blur-sm shadow-lg">
-          {car.year}
-        </div>
-
-        {/* Edit Button */}
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => onEditCar(car)}
-          className="absolute top-3 left-3 p-2.5 bg-white/95 hover:bg-white text-saas-primary-via rounded-xl transition-all shadow-lg hover:shadow-xl"
+        <span
+          className="absolute top-2.5 ltr:right-2.5 rtl:left-2.5 px-2 py-1 rounded-lg text-[10px] font-black text-white backdrop-blur-sm"
+          style={{ background: 'rgba(8,8,11,0.7)', border: '1px solid var(--fx-line-strong)' }}
         >
-          <Edit2 size={18} />
-        </motion.button>
+          {car.year}
+        </span>
+
+        <button
+          onClick={() => onEditCar(car)}
+          aria-label={lang === 'fr' ? 'Modifier le véhicule' : 'تعديل المركبة'}
+          className="fx-icon-btn absolute top-2.5 ltr:left-2.5 rtl:right-2.5 p-2 backdrop-blur-sm"
+          style={{ background: 'rgba(8,8,11,0.7)' }}
+        >
+          <Edit2 size={15} />
+        </button>
+
+        <div className="absolute bottom-2.5 inset-x-3 flex items-end justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="fx-title text-sm leading-tight truncate">{car.brand} {car.model}</h3>
+            <p className="text-[11px] font-bold" style={{ color: 'var(--fx-red-300)' }}>{car.registration}</p>
+          </div>
+          <span
+            className="shrink-0 px-2 py-1 rounded-lg text-[10px] font-black tabular-nums backdrop-blur-sm"
+            style={{ background: 'rgba(8,8,11,0.7)', border: '1px solid var(--fx-line-strong)', color: 'var(--fx-ink-soft)' }}
+          >
+            {car.mileage.toLocaleString('fr-FR')} km
+          </span>
+        </div>
       </div>
 
-      {/* Car Info */}
-      <div className="p-5 flex-1 flex flex-col gap-4">
-        <div>
-          <h3 className="text-lg font-black text-saas-text-main uppercase tracking-tighter">
-            {car.brand} {car.model}
-          </h3>
-          <p className="text-[10px] text-saas-primary-via font-bold uppercase tracking-widest">{car.registration}</p>
-        </div>
+      {/* ── Échéances ── */}
+      <div className="p-3.5 flex-1 flex flex-col gap-2">
+        {getMaintenanceItems().map((item) => {
+          // Trois teintes seulement : dépassé (rouge), bientôt (ambre), bon (vert).
+          const tint =
+            item.color === 'critical'
+              ? { bg: 'linear-gradient(135deg, rgba(240,51,60,0.16), rgba(116,8,26,0.04))', bd: 'var(--fx-line-red-hi)', fg: 'var(--fx-red-200)' }
+              : item.color === 'warning'
+              ? { bg: 'linear-gradient(135deg, rgba(217,132,16,0.15), rgba(168,92,8,0.04))', bd: 'rgba(251,191,36,0.42)', fg: '#FCD34D' }
+              : { bg: 'linear-gradient(135deg, rgba(16,164,111,0.14), rgba(10,115,80,0.03))', bd: 'rgba(52,211,153,0.38)', fg: '#6EE7B7' };
 
-        {/* Current Mileage */}
-        <div className="bg-saas-bg rounded-xl p-3 border border-saas-border">
-          <p className="text-[10px] font-bold text-saas-text-muted uppercase tracking-widest mb-1">📍 Kilométrage Actuel</p>
-          <p className="text-2xl font-black text-saas-primary-via tracking-tighter">{car.mileage.toLocaleString()} KM</p>
-        </div>
+          const status = item.status as any;
 
-        {/* Maintenance Items Grid */}
-        <div className="space-y-2.5">
-          {getMaintenanceItems().map((item) => {
-            const isExpired = item.statusValue !== null && (
-              (item.type === 'vidange' || item.type === 'chaine') 
-                ? item.statusValue <= 0 
-                : item.statusValue < 0
-            );
+          return (
+            <button
+              key={item.type}
+              onClick={item.onClick}
+              className="w-full p-2.5 rounded-xl flex items-center gap-2.5 text-left transition-all hover:-translate-y-0.5"
+              style={{ backgroundImage: tint.bg, border: `1px solid ${tint.bd}` }}
+            >
+              <span className="text-lg shrink-0">{item.icon}</span>
 
-            const statusBgColor =
-              item.color === 'critical'
-                ? 'bg-red-50 border-red-200'
-                : item.color === 'warning'
-                ? 'bg-amber-50 border-amber-200'
-                : 'bg-green-50 border-green-200';
-
-            const statusTextColor =
-              item.color === 'critical'
-                ? 'text-red-700'
-                : item.color === 'warning'
-                ? 'text-amber-700'
-                : 'text-green-700';
-
-            return (
-              <motion.button
-                key={item.type}
-                onClick={item.onClick}
-                whileHover={{ scale: 1.02, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                className={`w-full p-3.5 rounded-xl border-2 transition-all ${statusBgColor} hover:shadow-md flex items-center justify-between group/item`}
-              >
-                <div className="flex items-center gap-3 text-left flex-1">
-                  <span className="text-2xl">{item.icon}</span>
-                  <div className="flex-1">
-                    <p className={`text-xs font-bold uppercase tracking-widest ${statusTextColor}`}>
-                      {item.label}
-                    </p>
-                    {item.status.lastDate && (
-                      <div className="text-[9px] opacity-60 mt-0.5 space-y-0.5">
-                        <p>
-                          {lang === 'fr' ? 'Dernier:' : 'آخر:'} {new Date(item.status.lastDate).toLocaleDateString(
-                            lang === 'fr' ? 'fr-FR' : 'ar-SA'
-                          )}
-                        </p>
-                        {item.status.lastMileage !== null && item.status.lastMileage !== undefined && (
-                          <p>
-                            {lang === 'fr' ? 'À' : 'في'} {item.status.lastMileage.toLocaleString()} km
-                          </p>
-                        )}
-                        {item.status.nextMileage !== null && item.status.nextMileage !== undefined && (
-                          <p className={`font-bold ${statusTextColor}`}>
-                            {lang === 'fr' ? 'Prochain à' : 'القادم في'} {item.status.nextMileage.toLocaleString()} km
-                          </p>
-                        )}
-                      </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-wide truncate" style={{ color: tint.fg }}>
+                  {item.label}
+                </p>
+                {status.lastDate && (
+                  <p className="text-[10px] mt-0.5 truncate" style={{ color: 'var(--fx-ink-dim)' }}>
+                    {lang === 'fr' ? 'Dernier' : 'آخر'}{' '}
+                    {new Date(status.lastDate).toLocaleDateString('fr-FR')}
+                    {status.nextMileage != null && (
+                      <> · {lang === 'fr' ? 'prochain à' : 'القادم'} {status.nextMileage.toLocaleString('fr-FR')} km</>
                     )}
-                  </div>
-                </div>
+                  </p>
+                )}
+              </div>
 
-                <div className="text-right">
-                  <div className="flex items-center gap-1">
-                    <span className="text-xl font-black">
-                      {getStatusEmoji(item.color)}
-                    </span>
-                    <div>
-                      <p className={`text-xs font-bold uppercase tracking-widest ${statusTextColor} opacity-70 mb-0.5`}>
-                        {lang === 'fr' ? 'Restant' : 'متبقي'}
-                      </p>
-                      <p className={`text-lg font-black ${statusTextColor} tracking-tighter`}>
-                        {item.statusValue !== null && item.statusValue !== undefined
-                          ? Math.abs(item.statusValue).toLocaleString()
-                          : '—'}
-                      </p>
-                      <p className={`text-[8px] font-bold uppercase tracking-widest ${statusTextColor} opacity-60`}>
-                        {item.suffix}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </motion.button>
-            );
-          })}
-        </div>
+              <div className="text-right shrink-0">
+                <p className="text-base font-black tabular-nums leading-none" style={{ color: tint.fg }}>
+                  {item.statusValue !== null && item.statusValue !== undefined
+                    ? Math.abs(item.statusValue).toLocaleString('fr-FR')
+                    : '—'}
+                </p>
+                <p className="text-[9px] font-bold uppercase tracking-wide mt-0.5" style={{ color: 'var(--fx-ink-dim)' }}>
+                  {item.statusValue !== null && item.statusValue !== undefined && item.statusValue < 0
+                    ? (lang === 'fr' ? 'dépassé' : 'متجاوز')
+                    : item.suffix.trim()}
+                </p>
+              </div>
+
+              <span className="text-sm shrink-0">{getStatusEmoji(item.color)}</span>
+            </button>
+          );
+        })}
+
+        {/* Dépense libre — tout ce que les quatre échéances ne couvrent pas */}
+        {onAutreClick && (
+          <button
+            onClick={() => onAutreClick(car)}
+            className="fx-icon-btn w-full py-2.5 mt-0.5 text-[11px] font-bold"
+          >
+            <Plus size={14} />
+            {lang === 'fr' ? 'Autre dépense pour ce véhicule' : 'مصروف آخر لهذه المركبة'}
+          </button>
+        )}
       </div>
 
-      {/* Footer Info */}
-      <div className="px-5 py-4 border-t border-saas-border bg-saas-bg/50 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">⚙️</span>
-          <span className="text-[10px] font-bold text-saas-text-muted uppercase tracking-widest">{car.transmission}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-lg">⛽</span>
-          <span className="text-[10px] font-bold text-saas-text-muted uppercase tracking-widest">{car.energy}</span>
-        </div>
+      {/* ── Pied ── */}
+      <div
+        className="px-3.5 py-2.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-wide"
+        style={{ borderTop: '1px solid var(--fx-line)', backgroundImage: 'var(--fx-grad-well)', color: 'var(--fx-ink-mute)' }}
+      >
+        <span className="truncate">⚙️ {car.transmission}</span>
+        <span className="truncate">⛽ {car.energy}</span>
       </div>
     </motion.div>
   );

@@ -1419,7 +1419,7 @@ export const PlannerPage: React.FC<PlannerPageProps> = ({ lang, isAuthLoading = 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            className="fx-overlay p-4"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -2236,7 +2236,7 @@ const PayDebtModal: React.FC<{
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
       >
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md pointer-events-auto overflow-hidden">
+        <div className="fx-modal sm:max-w-md pointer-events-auto overflow-hidden">
           {/* Header */}
           <div className="bg-gradient-to-r from-emerald-600 to-green-700 px-6 py-5 flex items-center justify-between">
             <div>

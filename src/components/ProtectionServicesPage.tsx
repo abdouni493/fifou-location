@@ -43,7 +43,7 @@ export const ProtectionServicesPage: React.FC<ProtectionServicesPageProps> = ({ 
           onClick={() => setView('assurances')}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${
             view === 'assurances'
-              ? 'bg-linear-to-r from-saas-primary-start via-saas-primary-via to-saas-primary-end text-white shadow-md'
+              ? 'fx-modal-head-grad text-white shadow-md'
               : 'text-saas-text-muted hover:text-saas-text-main'
           }`}
         >
@@ -53,7 +53,7 @@ export const ProtectionServicesPage: React.FC<ProtectionServicesPageProps> = ({ 
           onClick={() => setView('services')}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${
             view === 'services'
-              ? 'bg-linear-to-r from-saas-primary-start via-saas-primary-via to-saas-primary-end text-white shadow-md'
+              ? 'fx-modal-head-grad text-white shadow-md'
               : 'text-saas-text-muted hover:text-saas-text-main'
           }`}
         >
@@ -699,12 +699,12 @@ const ServiceFormModal: React.FC<{
 const ModalShell: React.FC<{ onClose: () => void; children: React.ReactNode }> = ({ onClose, children }) => (
   <motion.div
     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-    className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+    className="fx-overlay"
     onClick={onClose}
   >
     <motion.div
       initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-      className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 custom-scrollbar"
+      className="fx-modal sm:max-w-2xl max-h-[90vh] overflow-y-auto p-6 custom-scrollbar"
       onClick={e => e.stopPropagation()}
     >
       {children}
@@ -720,12 +720,12 @@ const ConfirmDeleteModal: React.FC<{
 }> = ({ lang, message, onCancel, onConfirm }) => (
   <motion.div
     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-    className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+    className="fx-overlay"
     onClick={onCancel}
   >
     <motion.div
       initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-      className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center"
+      className="fx-modal sm:max-w-md p-6 text-center"
       onClick={e => e.stopPropagation()}
     >
       <div className="text-5xl mb-4">⚠️</div>
