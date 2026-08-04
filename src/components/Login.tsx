@@ -16,10 +16,6 @@ interface LoginProps {
   onLogin: (user: User) => void;
 }
 
-interface AdminCount {
-  count: number;
-}
-
 interface AgencyBranding {
   logo: string;
   navbarLogo: string;
@@ -84,26 +80,24 @@ export const Login: React.FC<LoginProps> = ({ lang, onLogin }) => {
       }
 
       // Check if input is email or username
-      const isEmail = email.includes('@');
-      
+      const credential = email.trim();
+      const isEmail = credential.includes('@');
+
       if (isEmail) {
         // Email-based login
         console.log('[Login] === EMAIL LOGIN ===');
         console.log('[Login] Attempting Supabase login with email...');
-        
-        const { data: result, error } = await supabase.auth.signInWithPassword({
-          email,
+
+        const result = await supabase.auth.signInWithPassword({
+          email: credential,
           password
         });
 
-        if (error) {
-          console.log('[Login] Email login error:', error.message);
-          setErrorMessage(error.message);
-          setIsSubmitting(false);
-          return;
-        }
-
-        if (result.data?.session) {
+        if (result.error) {
+          // Pas de compte Auth : ce peut être un employé d'avant la bascule,
+          // on retombe alors sur le RPC employé plus bas.
+          console.log('[Login] Supabase Auth failed:', result.error.message);
+        } else if (result.data?.session) {
           const u = result.data.user;
           const role = (u.user_metadata?.role as UserRole) || 'admin';
           const name = (u.user_metadata?.username as string) || u.user_metadata?.full_name || u.email || '';
@@ -136,134 +130,68 @@ export const Login: React.FC<LoginProps> = ({ lang, onLogin }) => {
           onLogin({ name, email: u.email || '', role, avatar: '' });
           return;
         }
-      } else {
-        // Username-based login
-        console.log('[Login] === USERNAME LOGIN ===');
-        console.log('[Login] Attempting worker/username login via RPC...');
-        
-        const loginResult = await DatabaseService.loginWorker(email, password);
-
-        if (!loginResult.success) {
-          console.log('[Login] Worker login failed:', loginResult.message);
-          setErrorMessage(loginResult.message);
-          setIsSubmitting(false);
-          return;
-        }
-
-        if (loginResult.data) {
-          // Worker RPC login successful
-          const worker = loginResult.worker;
-          const workerRole = (worker.type as UserRole) || 'worker';
-
-          console.log('[Login] === WORKER LOGIN SUCCESSFUL ===');
-          console.log('[Login] Worker authenticated:', { name: worker.full_name, email: worker.email, role: workerRole });
-
-          // Sans session Supabase, la lecture de sa ligne `workers` serait
-          // refusée par RLS : on met ses droits de côté dès maintenant pour
-          // que sa barre latérale soit correcte malgré tout.
-          if (worker.email) {
-            cacheWorkerPermissions(
-              worker.email,
-              Array.isArray(worker.permissions) ? worker.permissions : [],
-            );
-          }
-
-          // Save worker session to database
-          const sessionResult = await sessionService.createSession(
-            `worker_token_${Date.now()}`,
-            undefined,
-            Math.floor(Date.now() / 1000) + (24 * 60 * 60),
-            worker.id || `worker_${Date.now()}`,
-            worker.email || '',
-            workerRole,
-            worker.full_name
-          );
-          
-          console.log('[Login] Session saved:', !!sessionResult);
-          
-          // Clear form
-          setEmail('');
-          setPassword('');
-          
-          console.log('[Login] Calling onLogin callback...');
-          onLogin({
-            name: worker.full_name,
-            email: worker.email || '',
-            role: workerRole,
-            avatar: worker.profile_photo || ''
-          });
-          return;
-        }
       }
-    } catch (error) {
-      console.log('[Login] === UNEXPECTED ERROR ===');
-      console.log('[Login] Error:', error);
-      setErrorMessage(lang === 'fr' 
-        ? 'Une erreur est survenue lors de la connexion.' 
-        : 'حدث خطأ أثناء تسجيل الدخول.');
-      setIsSubmitting(false);
-    }
-  };
 
-  return (
-    <div className="min-h-dvh flex items-center justify-center p-4 sm:p-6 relative overflow-hidden fx-safe-b fx-safe-t">
-              role: workerRole,
-              avatar: worker.profile_photo || ''
-            });
-            return;
-          }
+      // Employé sans compte Auth : le RPC accepte aussi bien l'email que le
+      // nom d'utilisateur, il couvre donc les deux formes de saisie.
+      console.log('[Login] === WORKER LOGIN ===');
+      console.log('[Login] Attempting worker login via RPC...');
 
-          if (result.data?.session) {
-            const u = result.data.user;
-            const role = (u.user_metadata?.role as UserRole) || 'admin';
-            const name = (u.user_metadata?.username as string) || u.user_metadata?.full_name || u.email || '';
-            
-            console.log('[Login] === ADMIN LOGIN SUCCESSFUL ===');
-            console.log('[Login] Admin authenticated:', { name, email: u.email, role });
-            
-            // Save session to database using new session service
-            console.log('[Login] Saving session to database...');
-            await sessionService.createSession(
-              result.data.session.access_token,
-              result.data.session.refresh_token,
-              result.data.session.expires_at || Math.floor(Date.now() / 1000) + 3600,
-              u.id,
-              u.email || '',
-              role,
-              name
-            );
-            
-            // CRITICAL: Clear all SDK session data to prevent auto-refresh
-            console.log('[Login] Clearing SDK session data to prevent auto-refresh...');
-            localStorage.removeItem('supabase.auth.token');
-            sessionStorage.clear();
-            
-            // Clear form
-            setEmail('');
-            setPassword('');
-            setUsername('');
-            
-            console.log('[Login] Calling onLogin callback...');
-            onLogin({ name, email: u.email || '', role, avatar: '' });
-            return;
-          }
-        } else {
-          // For non-email input (username): show error message
-          console.log('[Login] Username-based login no longer supported. Please use email.');
-          setErrorMessage(lang === 'fr' 
-            ? 'Veuillez utiliser votre email pour vous connecter.' 
-            : 'يرجى استخدام بريدك الإلكتروني للدخول.');
-          setIsSubmitting(false);
-          return;
-        }
-      } catch (error) {
-        console.log('[Login] Authentication exception:', error);
-        setErrorMessage(lang === 'fr' 
-          ? 'Une erreur est survenue lors de la connexion.' 
-          : 'حدث خطأ أثناء تسجيل الدخول.');
+      const { data: loginResult, error: rpcError } = await supabase.rpc('login_worker', {
+        p_email_or_username: credential,
+        p_password: password
+      });
+
+      if (rpcError || !loginResult?.success) {
+        console.log('[Login] Worker login failed:', rpcError?.message || loginResult?.error);
+        setErrorMessage(lang === 'fr'
+          ? 'Email ou mot de passe incorrect.'
+          : 'البريد الإلكتروني أو كلمة المرور غير صحيحة.');
         setIsSubmitting(false);
         return;
       }
+
+      // Worker RPC login successful
+      const worker = loginResult.worker;
+      const workerRole = (worker.type as UserRole) || 'worker';
+
+      console.log('[Login] === WORKER LOGIN SUCCESSFUL ===');
+      console.log('[Login] Worker authenticated:', { name: worker.full_name, email: worker.email, role: workerRole });
+
+      // Sans session Supabase, la lecture de sa ligne `workers` serait
+      // refusée par RLS : on met ses droits de côté dès maintenant pour
+      // que sa barre latérale soit correcte malgré tout.
+      if (worker.email) {
+        cacheWorkerPermissions(
+          worker.email,
+          Array.isArray(worker.permissions) ? worker.permissions : [],
+        );
+      }
+
+      // Save worker session to database
+      const sessionResult = await sessionService.createSession(
+        `worker_token_${Date.now()}`,
+        undefined,
+        Math.floor(Date.now() / 1000) + (24 * 60 * 60),
+        worker.id || `worker_${Date.now()}`,
+        worker.email || '',
+        workerRole,
+        worker.full_name
+      );
+
+      console.log('[Login] Session saved:', !!sessionResult);
+
+      // Clear form
+      setEmail('');
+      setPassword('');
+
+      console.log('[Login] Calling onLogin callback...');
+      onLogin({
+        name: worker.full_name,
+        email: worker.email || '',
+        role: workerRole,
+        avatar: worker.profile_photo || ''
+      });
     } catch (error) {
       console.log('[Login] === UNEXPECTED ERROR ===');
       console.log('[Login] Error:', error);
@@ -383,7 +311,7 @@ export const Login: React.FC<LoginProps> = ({ lang, onLogin }) => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="input-saas pl-12"
-                    placeholder={isSigningUp ? "admin@autofutur.com" : "john.doe ou john@email.com"}
+                    placeholder="john.doe ou john@email.com"
                   />
                 </div>
               </motion.div>
