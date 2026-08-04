@@ -86,7 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           exit={{ x: isRtl ? '100%' : '-100%', opacity: 0 }}
           transition={{ type: 'spring', damping: 28, stiffness: 240 }}
           className="fx-rail fixed inset-y-0 left-0 z-50 w-[17rem] max-w-[85vw] flex flex-col
-                     ltr:left-0 rtl:right-0 lg:sticky lg:top-0 lg:h-screen lg:max-w-none"
+                     ltr:left-0 rtl:right-0 lg:inset-y-0 lg:h-screen lg:max-w-none"
           style={{ [isRtl ? 'right' : 'left']: 0 }}
         >
           {/* ── Marque ── */}

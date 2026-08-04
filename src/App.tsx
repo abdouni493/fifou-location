@@ -171,18 +171,34 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           Supabase non configuré — définissez VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY.
         </div>
       )}
-      <Sidebar
-        lang={lang}
-        isVisible={isSidebarVisible}
-        setIsVisible={setIsSidebarVisible}
-        onLogout={onLogout}
-        activeTab={activeTab}
-        setActiveTab={onTabChange}
-        alertsCount={maintenanceAlertsCount}
-        webOrdersCount={webOrdersCount}
-      />
+      <div className="hidden lg:block lg:fixed lg:inset-y-0 lg:left-0 lg:w-[17rem] lg:z-50">
+        <Sidebar
+          lang={lang}
+          isVisible={true}
+          setIsVisible={setIsSidebarVisible}
+          onLogout={onLogout}
+          activeTab={activeTab}
+          setActiveTab={onTabChange}
+          alertsCount={maintenanceAlertsCount}
+          webOrdersCount={webOrdersCount}
+        />
+      </div>
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      {/* Mobile sidebar */}
+      {isSidebarVisible && (
+        <Sidebar
+          lang={lang}
+          isVisible={isSidebarVisible}
+          setIsVisible={setIsSidebarVisible}
+          onLogout={onLogout}
+          activeTab={activeTab}
+          setActiveTab={onTabChange}
+          alertsCount={maintenanceAlertsCount}
+          webOrdersCount={webOrdersCount}
+        />
+      )}
+
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-[17rem]">
         <Navbar
           user={user}
           lang={lang}
