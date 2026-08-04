@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { DatabaseService } from '../services/DatabaseService';
 import { supabase } from '../supabase';
 import { sessionService } from '../utils/sessionService';
+import { uploadWebsiteImage } from '../services/uploadWebsiteImage';
 
 interface ConfigPageProps {
   lang: Language;
@@ -382,48 +383,51 @@ export const ConfigPage: React.FC<ConfigPageProps> = ({ lang, user }) => {
     }
   };
 
+  // Lit un fichier en Data URL — repli quand le Storage est inaccessible.
+  const fileToDataUrl = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => resolve(ev.target?.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        setNotification({ type: 'error', message: lang === 'fr' ? 'Veuillez sélectionner une image valide' : 'يرجى تحديد صورة صحيحة' });
-        setTimeout(() => setNotification(null), 4000);
-        return;
-      }
+    if (!file) return;
 
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setNotification({ type: 'error', message: lang === 'fr' ? 'La taille du fichier ne doit pas dépasser 5MB' : 'حجم الملف لا يجب أن يتجاوز 5MB' });
-        setTimeout(() => setNotification(null), 4000);
-        return;
-      }
+    if (!file.type.startsWith('image/')) {
+      setNotification({ type: 'error', message: lang === 'fr' ? 'Veuillez sélectionner une image valide' : 'يرجى تحديد صورة صحيحة' });
+      setTimeout(() => setNotification(null), 4000);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setNotification({ type: 'error', message: lang === 'fr' ? 'La taille du fichier ne doit pas dépasser 5MB' : 'حجم الملف لا يجب أن يتجاوز 5MB' });
+      setTimeout(() => setNotification(null), 4000);
+      return;
+    }
 
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const imageData = event.target?.result as string;
+    try {
+      // On téléverse dans le bucket "website" et on ne stocke que l'URL publique
+      // (courte). Un logo en base64 gonflait la ligne UNIQUE `website_settings`
+      // — relue à chaque page (connexion, sidebar) et recopiée dans
+      // `agency_settings` par trigger — au point de faire échouer l'upsert.
+      // Repli en base64 si le Storage refuse (session/RLS), pour ne jamais
+      // bloquer la mise à jour du logo.
+      const uploaded = await uploadWebsiteImage(file, 'logo');
+      const logoValue = uploaded.success && uploaded.url
+        ? uploaded.url
+        : await fileToDataUrl(file);
 
-        try {
-          // Update local state
-          setGeneralData(prev => ({
-            ...prev,
-            logo: imageData,
-          }));
+      setGeneralData(prev => ({ ...prev, logo: logoValue }));
+      await DatabaseService.updateWebsiteSettings({ logo: logoValue });
 
-          // Sauvegarde partielle : `updateWebsiteSettings` fusionne avec la
-          // ligne existante, inutile de renvoyer le nom et le slogan (qui
-          // peuvent avoir été modifiés sans être encore validés).
-          await DatabaseService.updateWebsiteSettings({ logo: imageData });
-
-          setNotification({ type: 'success', message: lang === 'fr' ? 'Logo mis à jour avec succès!' : 'تم تحديث الشعار بنجاح!' });
-          setTimeout(() => setNotification(null), 4000);
-        } catch (error) {
-          console.error('Error updating logo:', error);
-          setNotification({ type: 'error', message: lang === 'fr' ? 'Erreur lors de la mise à jour du logo' : 'خطأ في تحديث الشعار' });
-          setTimeout(() => setNotification(null), 4000);
-        }
-      };
-      reader.readAsDataURL(file);
+      setNotification({ type: 'success', message: lang === 'fr' ? 'Logo mis à jour avec succès!' : 'تم تحديث الشعار بنجاح!' });
+      setTimeout(() => setNotification(null), 4000);
+    } catch (error) {
+      console.error('Error updating logo:', error);
+      setNotification({ type: 'error', message: lang === 'fr' ? 'Erreur lors de la mise à jour du logo' : 'خطأ في تحديث الشعار' });
+      setTimeout(() => setNotification(null), 4000);
     }
   };
 
@@ -841,7 +845,7 @@ export const ConfigPage: React.FC<ConfigPageProps> = ({ lang, user }) => {
                   <div className="flex gap-6 items-start">
                     <div className="w-24 h-24 rounded-lg overflow-hidden border-2 border-saas-border bg-saas-bg flex items-center justify-center flex-shrink-0">
                       {generalData.logo ? (
-                        <img src={generalData.logo} alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        <img src={generalData.logo} alt="Logo" className="w-full h-full object-contain p-1" referrerPolicy="no-referrer" />
                       ) : (
                         <span className="text-4xl">🏢</span>
                       )}

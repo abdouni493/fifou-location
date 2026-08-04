@@ -102,24 +102,25 @@ export const BrandMark: React.FC<{
   const src = (logo || '').trim() || (fallbackLogo || '').trim();
 
   const [ink, setInk] = useState<InkBox | null>(null);
-  const [failed, setFailed] = useState(false);
+  // `imgError` = l'image ne charge même pas en <img> simple (URL cassée / 404).
+  // C'est le SEUL cas qui doit retomber sur l'initiale : un canevas « teinté »
+  // (bucket sans en-têtes CORS) empêche seulement la MESURE, pas l'affichage.
+  const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
     setInk(null);
-    setFailed(false);
+    setImgError(false);
     if (!src) return;
 
     let alive = true;
-    measureInk(src).then((box) => {
-      if (!alive) return;
-      if (box) setInk(box);
-      else setFailed(true);
-    });
+    // La mesure peut échouer (CORS) et renvoyer null : on n'en fait pas un échec
+    // d'affichage, on retombe simplement sur un rendu « contain » plus bas.
+    measureInk(src).then((box) => { if (alive) setInk(box); });
     return () => { alive = false; };
   }, [src]);
 
-  // Pas de logo, ou image illisible : initiale du nom sur le dégradé de la marque.
-  if (!src || failed) {
+  // Pas de logo, ou image réellement illisible : initiale sur le dégradé marque.
+  if (!src || imgError) {
     const initial = (name || 'A').trim().charAt(0).toUpperCase() || 'A';
     return (
       <span
@@ -131,10 +132,21 @@ export const BrandMark: React.FC<{
     );
   }
 
-  // Tant que la mesure n'est pas revenue on réserve la place sans rien peindre :
-  // un flash de logo décentré serait plus visible qu'un vide de quelques ms.
+  // Mesure indisponible (en cours, ou canevas teinté par l'absence de CORS) :
+  // on affiche quand même le logo en « contain ». Un onError retombe sur
+  // l'initiale seulement si l'URL est vraiment cassée.
   if (!ink) {
-    return <span className={`shrink-0 block ${className}`} style={{ width: size, height: size }} />;
+    return (
+      <span className={`shrink-0 block ${className}`} style={{ width: size, height: size }}>
+        <img
+          src={src}
+          alt={name || 'Logo'}
+          referrerPolicy="no-referrer"
+          onError={() => setImgError(true)}
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+        />
+      </span>
+    );
   }
 
   // Cadrage sur l'encre. On agrandit le canevas entier du facteur qui fait tenir
@@ -154,7 +166,7 @@ export const BrandMark: React.FC<{
         src={src}
         alt={name || 'Logo'}
         referrerPolicy="no-referrer"
-        onError={() => setFailed(true)}
+        onError={() => setImgError(true)}
         style={{
           position: 'absolute',
           width: ink.canvasW * k,
