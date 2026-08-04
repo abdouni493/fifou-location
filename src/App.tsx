@@ -266,6 +266,13 @@ export default function App() {
     document.documentElement.dataset.surface = isWebsiteMode ? 'site' : 'admin';
   }, [isWebsiteMode]);
 
+  // Le rail est-il épinglé à l'écran ? Sur ce drapeau, index.css décale les
+  // fenêtres modales (« Nouveau client », « Nouveau véhicule »…) pour qu'elles
+  // s'ouvrent À DROITE de la barre latérale au lieu de la recouvrir.
+  useEffect(() => {
+    document.documentElement.dataset.rail = isSidebarVisible ? 'on' : 'off';
+  }, [isSidebarVisible]);
+
   // Sync URL with active tab - extract tab from URL on mount and when URL changes
   useEffect(() => {
     const pathname = location.pathname;

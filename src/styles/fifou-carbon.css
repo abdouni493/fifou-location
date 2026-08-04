@@ -719,6 +719,17 @@ html:not([data-surface="site"]) option { background-color: #17171E; color: var(-
   background: rgba(4, 4, 6, 0.78);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  transition: left var(--fx-t) var(--fx-ease), right var(--fx-t) var(--fx-ease);
+}
+
+/* Les fenêtres « créer / modifier » s'ouvrent À DROITE du rail épinglé, jamais
+   par-dessus : la barre latérale reste visible pendant la saisie. Le voile
+   commence donc après la largeur du rail (17rem) au bureau. Piloté par
+   html[data-rail="on"], posé par App.tsx selon l'état de la sidebar.
+   Sur téléphone (< 1024px) le voile reste plein écran, au-dessus de tout. */
+@media (min-width: 1024px) {
+  html:not([data-surface="site"])[data-rail="on"] .fx-overlay { left: 17rem; }
+  html:not([data-surface="site"])[data-rail="on"][dir="rtl"] .fx-overlay { left: 0; right: 17rem; }
 }
 .fx-modal {
   width: 100%;

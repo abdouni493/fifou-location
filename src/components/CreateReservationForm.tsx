@@ -2102,22 +2102,25 @@ export const Step3DepartureInspection: React.FC<{
           </h4>
           <div className="space-y-4">
             <div>
-              <label className="block font-bold text-slate-900 mb-2">
+              <label className="fx-label">
                 🛣️ {lang === 'fr' ? 'Kilométrage au Départ' : 'عداد الكيلومترات عند المغادرة'}
               </label>
               <input
                 type="number"
                 value={mileage}
                 onChange={(e) => setMileage(e.target.value)}
-                className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-bold text-slate-900"
+                className="fx-field font-bold"
                 placeholder="0"
                 min="0"
               />
               {/* Always show current car mileage as reference */}
               {_carMileage !== undefined && _carMileage > 0 && (
-                <div className="mt-1.5 flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-200 rounded-lg">
-                  <span className="text-blue-500 text-xs">📌</span>
-                  <p className="text-xs font-bold text-blue-700">
+                <div
+                  className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg"
+                  style={{ backgroundImage: 'var(--fx-grad-red-veil)', border: '1px solid var(--fx-line-red)' }}
+                >
+                  <span className="text-xs">📌</span>
+                  <p className="text-[11px] font-bold" style={{ color: 'var(--fx-red-200)' }}>
                     {lang === 'fr'
                       ? `Kilométrage actuel du véhicule : ${_carMileage.toLocaleString()} km`
                       : `عداد الكيلومترات الحالي للمركبة: ${_carMileage.toLocaleString()} كم`}
@@ -2127,7 +2130,7 @@ export const Step3DepartureInspection: React.FC<{
             </div>
 
             <div>
-              <label className="block font-bold text-slate-900 mb-3">
+              <label className="fx-label">
                 ⛽ {lang === 'fr' ? 'Niveau de Carburant' : 'مستوى الوقود'}
               </label>
               {/* Jauge de carburant : cinq crans, remplis jusqu'au niveau
@@ -2179,13 +2182,13 @@ export const Step3DepartureInspection: React.FC<{
             </div>
 
             <div>
-              <label className="block font-bold text-slate-900 mb-2">
+              <label className="fx-label">
                 📍 {lang === 'fr' ? 'Lieu d\'Inspection' : 'مكان الفحص'}
               </label>
               <select
                 value={selectedInspectionLocation}
                 onChange={(e) => setSelectedInspectionLocation(e.target.value)}
-                className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="fx-field cursor-pointer"
                 disabled={isLoadingAgencies}
               >
                 <option value="">
@@ -2205,118 +2208,202 @@ export const Step3DepartureInspection: React.FC<{
         </div>
 
         {/* Notes */}
-        <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
-          <h4 className="text-lg font-black text-slate-900 mb-4">
+        <div className="fx-well p-4 sm:p-5">
+          <h4 className="fx-title text-base mb-3.5">
             📝 {lang === 'fr' ? 'Notes d\'Inspection (Optionnel)' : 'ملاحظات الفحص (اختياري)'}
           </h4>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="fx-field"
             rows={8}
             placeholder={lang === 'fr' ? 'État général du véhicule, observations particulières...' : 'الحالة العامة للمركبة، ملاحظات خاصة...'}
           />
         </div>
       </div>
 
-      {/* Inspection Checklist */}
-      <div className="space-y-6">
-        <h4 className="text-xl font-black text-slate-900">
-          ✅ {lang === 'fr' ? 'Contrôle d\'État du Véhicule' : 'فحص حالة المركبة'}
-        </h4>
+      {/* ── Contrôle d'état : check-list par catégorie, en pastilles carbone ── */}
+      <div className="fx-card p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h4 className="fx-title text-lg sm:text-xl flex items-center gap-2">
+            ✅ {lang === 'fr' ? "Contrôle d'état du véhicule" : 'فحص حالة المركبة'}
+          </h4>
+          <span
+            className="text-[11px] font-black px-3 py-1.5 rounded-full tabular-nums"
+            style={{
+              backgroundImage: 'var(--fx-grad-red-tint)',
+              border: '1px solid var(--fx-line-red)',
+              color: 'var(--fx-red-200)',
+            }}
+          >
+            {checklistDone}/{checklistTotal} {lang === 'fr' ? 'cochés' : 'محدد'}
+          </span>
+        </div>
 
-        {inspectionCategories.map((category) => (
-          <div key={category.key} className="bg-white rounded-2xl shadow-lg p-6 border border-slate-200">
-            <h5 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
-              {category.icon} {category.title}
-            </h5>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-              {category.items.map((item) => (
-                <div
-                  key={item.id}
-                  className={`flex items-center gap-3 p-3 border-2 rounded-lg transition-all ${
-                    checklistResponses[item.id]
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-red-300 bg-red-50'
-                  }`}
-                >
-                  <div
-                    onClick={() => toggleChecklistItem(item.id)}
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer ${
-                      checklistResponses[item.id] ? 'border-green-500 bg-green-500' : 'border-red-300 bg-red-300'
-                    }`}
+        <div className="space-y-5">
+          {inspectionCategories.map((category) => {
+            const catDone = category.items.filter((i: any) => checklistResponses[i.id]).length;
+            return (
+              <div key={category.key}>
+                <div className="flex items-center gap-2.5 mb-2.5">
+                  <span
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
+                    style={{
+                      backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))',
+                      border: '1px solid var(--fx-line-strong)',
+                    }}
                   >
-                    {checklistResponses[item.id] && <Check className="w-3 h-3 text-white" />}
-                  </div>
-                  <span className={`font-bold flex-1 ${checklistResponses[item.id] ? 'text-green-800' : 'text-red-800'}`}>
-                    {item.item_name}
+                    {category.icon}
                   </span>
-                  <button
-                    onClick={() => removeChecklistItem(item.id)}
-                    className="text-red-500 hover:text-red-700 p-1"
-                    title={lang === 'fr' ? 'Supprimer cet élément' : 'حذف هذا العنصر'}
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  <h5 className="fx-title text-sm sm:text-base flex-1 min-w-0">{category.title}</h5>
+                  <span className="text-[10px] font-black tabular-nums" style={{ color: 'var(--fx-ink-dim)' }}>
+                    {catDone}/{category.items.length}
+                  </span>
                 </div>
-              ))}
-            </div>
 
-            {/* Add custom item */}
-            <div className="flex gap-2 mt-4">
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="securite">🛡️ Sécurité</option>
-                <option value="equipements">🔧 Équipements</option>
-                <option value="confort">✨ Confort</option>
-              </select>
-              <input
-                type="text"
-                value={newCustomItem}
-                onChange={(e) => setNewCustomItem(e.target.value)}
-                placeholder={lang === 'fr' ? 'Ajouter un élément personnalisé...' : 'إضافة عنصر مخصص...'}
-                className="flex-1 p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                onKeyPress={(e) => e.key === 'Enter' && addCustomChecklistItem()}
-              />
-              <button
-                onClick={addCustomChecklistItem}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
+                {category.items.length === 0 ? (
+                  <p className="text-[11px] px-1 pb-1" style={{ color: 'var(--fx-ink-dim)' }}>
+                    {lang === 'fr' ? 'Aucun point dans cette catégorie.' : 'لا توجد نقاط في هذه الفئة.'}
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {category.items.map((item: any) => {
+                      const checked = !!checklistResponses[item.id];
+                      return (
+                        <div
+                          key={item.id}
+                          className="group flex items-center gap-2.5 rounded-xl pl-2.5 pr-1.5 py-2 transition-all"
+                          style={{
+                            border: `1px solid ${checked ? 'rgba(52,211,153,0.45)' : 'var(--fx-line-strong)'}`,
+                            backgroundImage: checked
+                              ? 'linear-gradient(135deg, rgba(16,164,111,0.18), rgba(10,115,80,0.04))'
+                              : 'var(--fx-grad-well)',
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleChecklistItem(item.id)}
+                            className="flex items-center gap-2.5 flex-1 min-w-0 text-left cursor-pointer"
+                          >
+                            <span
+                              className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all"
+                              style={{
+                                backgroundImage: checked
+                                  ? 'linear-gradient(135deg,#10A46F,#0A7350)'
+                                  : 'none',
+                                border: `2px solid ${checked ? 'rgba(52,211,153,0.7)' : 'var(--fx-line-red)'}`,
+                              }}
+                            >
+                              {checked && <Check className="w-3 h-3 text-white" />}
+                            </span>
+                            <span
+                              className="font-bold text-[13px] truncate"
+                              style={{ color: checked ? '#6EE7B7' : 'var(--fx-ink-soft)' }}
+                            >
+                              {item.item_name}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeChecklistItem(item.id)}
+                            className="fx-icon-btn fx-icon-btn-danger p-1.5 shrink-0 opacity-60 group-hover:opacity-100"
+                            title={lang === 'fr' ? 'Supprimer cet élément' : 'حذف هذا العنصر'}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Ajouter un point de contrôle — une seule barre, mieux rangée */}
+        <div className="fx-well p-3 sm:p-3.5 mt-5">
+          <p className="fx-label mb-2">
+            ➕ {lang === 'fr' ? 'Ajouter un point de contrôle' : 'إضافة نقطة فحص'}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="fx-field sm:w-44 cursor-pointer"
+              aria-label={lang === 'fr' ? 'Catégorie' : 'الفئة'}
+            >
+              <option value="securite">🛡️ {lang === 'fr' ? 'Sécurité' : 'الأمان'}</option>
+              <option value="equipements">🔧 {lang === 'fr' ? 'Équipements' : 'المعدات'}</option>
+              <option value="confort">✨ {lang === 'fr' ? 'Confort' : 'الراحة'}</option>
+            </select>
+            <input
+              type="text"
+              value={newCustomItem}
+              onChange={(e) => setNewCustomItem(e.target.value)}
+              placeholder={lang === 'fr' ? 'Nom du nouvel élément…' : 'اسم العنصر الجديد…'}
+              className="fx-field flex-1 min-w-0"
+              onKeyPress={(e) => e.key === 'Enter' && addCustomChecklistItem()}
+            />
+            <button
+              type="button"
+              onClick={addCustomChecklistItem}
+              disabled={!newCustomItem.trim()}
+              className="fx-btn fx-btn-primary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold whitespace-nowrap disabled:opacity-45 disabled:pointer-events-none"
+            >
+              <Plus className="w-4 h-4" />
+              {lang === 'fr' ? 'Ajouter' : 'إضافة'}
+            </button>
           </div>
-        ))}
+        </div>
       </div>
 
-      {/* Photo Upload */}
-      <div className="bg-orange-50 rounded-2xl p-6 border border-orange-200">
-        <h4 className="text-lg font-black text-orange-900 mb-4">
-          📸 {lang === 'fr' ? 'Photos d\'État Initial' : 'صور الحالة الأولية'}
-        </h4>
+      {/* ── Photos d'état initial — dépose carbone, une tuile par angle ── */}
+      <div className="fx-card p-4 sm:p-5">
+        <div className="flex items-start gap-3 mb-4">
+          <span
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0"
+            style={{ backgroundImage: 'var(--fx-grad-red-tint)', border: '1px solid var(--fx-line-red)' }}
+          >
+            📸
+          </span>
+          <div className="min-w-0">
+            <h4 className="fx-title text-lg leading-tight">
+              {lang === 'fr' ? "Photos d'état initial" : 'صور الحالة الأولية'}
+            </h4>
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--fx-ink-mute)' }}>
+              {lang === 'fr'
+                ? "Photographiez chaque angle du véhicule : la preuve visuelle en cas de litige au retour."
+                : 'صوّر كل زاوية من المركبة: الدليل المرئي في حال نزاع عند العودة.'}
+            </p>
+          </div>
+        </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4">
           {/* Upload buttons */}
           {[
-            { label: 'Extérieur Avant', type: 'exterior_front' },
-            { label: 'Intérieur', type: 'interior' },
-            { label: 'Extérieur Arrière', type: 'exterior_rear' },
-            { label: 'Autres', type: 'other' }
+            { label: 'Extérieur Avant', type: 'exterior_front', icon: '🚗' },
+            { label: 'Intérieur', type: 'interior', icon: '🪑' },
+            { label: 'Extérieur Arrière', type: 'exterior_rear', icon: '🔙' },
+            { label: 'Autres', type: 'other', icon: '📎' }
           ].map((item) => (
             <div key={item.type} className="relative">
               <input
                 type="file"
                 accept="image/*"
                 onChange={(e) => handlePhotoUpload(e, item.type)}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
               />
-              <div className="aspect-square border-2 border-dashed border-orange-300 rounded-lg flex flex-col items-center justify-center hover:bg-orange-100 transition-colors">
-                <Upload className="w-8 h-8 text-orange-500 mb-2" />
-                <span className="text-sm text-orange-700 font-bold text-center">
+              <div
+                className="aspect-square rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all"
+                style={{
+                  border: '1.5px dashed var(--fx-line-red)',
+                  backgroundImage: 'var(--fx-grad-well)',
+                }}
+              >
+                <span className="text-2xl opacity-80">{item.icon}</span>
+                <Upload className="w-5 h-5" style={{ color: 'var(--fx-red-300)' }} />
+                <span className="text-[11px] font-bold text-center px-1 leading-tight" style={{ color: 'var(--fx-ink-soft)' }}>
                   {lang === 'fr' ? item.label : (item.label === 'Extérieur Avant' ? 'الخارج الأمامي' : item.label === 'Intérieur' ? 'الداخل' : item.label === 'Extérieur Arrière' ? 'الخارج الخلفي' : 'أخرى')}
                 </span>
               </div>
@@ -2326,7 +2413,7 @@ export const Step3DepartureInspection: React.FC<{
 
         {/* Display uploaded photos */}
         {photos.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             {photos.map((photo, index) => {
               // Resolve possible stored path into absolute URL
               const resolveUrl = (u?: string) => {
@@ -2350,13 +2437,15 @@ export const Step3DepartureInspection: React.FC<{
                   <img
                     src={src}
                     alt={`Photo ${index + 1}`}
-                    className="w-full aspect-square object-cover rounded-lg border border-orange-200"
+                    className="w-full aspect-square object-cover rounded-xl"
+                    style={{ border: '1px solid var(--fx-line-strong)' }}
                   />
                   <button
                     onClick={() => removePhoto(index)}
-                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-1.5 right-1.5 rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity text-white"
+                    style={{ backgroundImage: 'var(--fx-grad-red)', boxShadow: '0 2px 10px rgba(200,16,46,0.5)' }}
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               );
@@ -2365,33 +2454,36 @@ export const Step3DepartureInspection: React.FC<{
         )}
       </div>
 
-      {/* Signature Section */}
-      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl p-6 border border-purple-200">
-        <h4 className="text-lg font-black text-purple-900 mb-4">
-          ✍️ {lang === 'fr' ? 'Signature du Client' : 'توقيع العميل'}
+      {/* ── Signature du client — validation carbone ── */}
+      <div className="fx-card p-4 sm:p-5">
+        <h4 className="fx-title text-lg mb-4 flex items-center gap-2">
+          ✍️ {lang === 'fr' ? 'Signature du client' : 'توقيع العميل'}
         </h4>
 
         <div className="flex flex-col items-center space-y-4">
-            <div className="bg-white border-2 border-dashed border-purple-300 rounded-2xl p-4 shadow-inner">
+          <div
+            className="rounded-2xl p-4"
+            style={{ border: '1.5px dashed var(--fx-line-red)', backgroundImage: 'var(--fx-grad-well)' }}
+          >
             <SignaturePad lang={lang} initialSignature={signature} onSignatureChange={setSignature} />
           </div>
           {/* preview raw signature in case canvas doesn't render URL */}
           {signature && !signature.startsWith('data:') && (
             <div className="mt-2">
-              <img src={signature} alt="signature" className="max-w-full h-auto border" />
+              <img src={signature} alt="signature" className="max-w-full h-auto" style={{ border: '1px solid var(--fx-line-strong)' }} />
             </div>
           )}
 
-          <div className="flex items-center gap-3">
+          <label htmlFor="signature-confirm" className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
               id="signature-confirm"
-              className="w-5 h-5 text-purple-600 border-purple-300 rounded focus:ring-purple-500"
+              className="w-5 h-5 rounded"
             />
-            <label htmlFor="signature-confirm" className="text-purple-900 font-bold text-sm">
+            <span className="font-bold text-sm" style={{ color: 'var(--fx-ink-soft)' }}>
               {lang === 'fr' ? 'Je confirme avoir inspecté le véhicule et accepte son état actuel' : 'أؤكد أنني قمت بفحص المركبة وأقبل حالتها الحالية'}
-            </label>
-          </div>
+            </span>
+          </label>
         </div>
       </div>
 

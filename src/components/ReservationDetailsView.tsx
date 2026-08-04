@@ -1271,8 +1271,12 @@ export const ActivationModal: React.FC<{ lang: Language; reservation: Reservatio
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="fx-modal sm:max-w-4xl p-5 sm:p-6 overflow-y-auto custom-scrollbar"
+        className="fx-modal sm:max-w-4xl"
       >
+        {/* Corps défilant : la modale garde une hauteur maximale et c'est CE
+            conteneur qui défile — sans lui, `.fx-modal { overflow:hidden }`
+            coupait le contenu trop haut sans permettre de le faire défiler. */}
+        <div className="fx-modal-body custom-scrollbar p-5 sm:p-6" style={{ minHeight: 0 }}>
         {/* Bandeau vert : activer, c'est faire SORTIR le véhicule. L'action est
             engageante, on la signale autrement que par le rouge de la marque. */}
         <div
@@ -1571,6 +1575,7 @@ export const ActivationModal: React.FC<{ lang: Language; reservation: Reservatio
           </button>
         </div>
         </div>
+        </div>
       </motion.div>
     </motion.div>
   );
@@ -1792,8 +1797,11 @@ export const CompletionModal: React.FC<{ lang: Language; reservation: Reservatio
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="fx-modal sm:max-w-5xl p-5 sm:p-6 overflow-y-auto custom-scrollbar"
+        className="fx-modal sm:max-w-5xl"
       >
+        {/* Corps défilant : cf. modale d'activation — c'est ce conteneur qui
+            défile pour que le contenu long reste entièrement accessible. */}
+        <div className="fx-modal-body custom-scrollbar p-5 sm:p-6" style={{ minHeight: 0 }}>
         {/* Bandeau rouge : clôturer, c'est arrêter la facturation et figer les
             comptes de la location. C'est l'action la plus définitive de l'écran. */}
         <div
@@ -2198,6 +2206,7 @@ export const CompletionModal: React.FC<{ lang: Language; reservation: Reservatio
               <>✅ {lang === 'fr' ? 'Terminer la Location' : 'إنهاء التأجير'}</>
             )}
           </button>
+        </div>
         </div>
       </motion.div>
     </motion.div>
