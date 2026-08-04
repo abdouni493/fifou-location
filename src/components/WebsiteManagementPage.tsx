@@ -450,8 +450,8 @@ export const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({ la
       notify('error', lang === 'fr' ? 'Veuillez sélectionner une image valide' : 'يرجى تحديد صورة صحيحة');
       return false;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      notify('error', lang === 'fr' ? 'La taille du fichier ne doit pas dépasser 5MB' : 'حجم الملف لا يجب أن يتجاوز 5MB');
+    if (file.size > 10 * 1024 * 1024) {
+      notify('error', lang === 'fr' ? 'La taille du fichier ne doit pas dépasser 10MB' : 'حجم الملف لا يجب أن يتجاوز 10MB');
       return false;
     }
     return true;

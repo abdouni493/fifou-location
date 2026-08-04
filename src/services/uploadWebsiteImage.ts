@@ -22,9 +22,9 @@ export async function uploadWebsiteImage(
       return { success: false, error: 'File must be an image' }
     }
 
-    const maxSize = 5 * 1024 * 1024 // 5MB
+    const maxSize = 10 * 1024 * 1024 // 10MB
     if (file.size > maxSize) {
-      return { success: false, error: 'File size must be less than 5MB' }
+      return { success: false, error: 'File size must be less than 10MB' }
     }
 
     // Le bucket "website" n'accepte que le rôle "authenticated" : sans session

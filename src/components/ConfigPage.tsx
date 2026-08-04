@@ -401,8 +401,8 @@ export const ConfigPage: React.FC<ConfigPageProps> = ({ lang, user }) => {
       setTimeout(() => setNotification(null), 4000);
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setNotification({ type: 'error', message: lang === 'fr' ? 'La taille du fichier ne doit pas dépasser 5MB' : 'حجم الملف لا يجب أن يتجاوز 5MB' });
+    if (file.size > 10 * 1024 * 1024) {
+      setNotification({ type: 'error', message: lang === 'fr' ? 'La taille du fichier ne doit pas dépasser 10MB' : 'حجم الملف لا يجب أن يتجاوز 10MB' });
       setTimeout(() => setNotification(null), 4000);
       return;
     }
